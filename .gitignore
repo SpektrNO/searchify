@@ -1,0 +1,16 @@
+/searchify
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage.out
+coverage.html
+.idea/
+.vscode/
+*.swp
+.env
+.env.*
+!.env.example
+.searchify/
+.tools/

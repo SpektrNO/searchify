@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "searchify": {
+      "command": "/home/fsat/dev/spektr/searchify/bin/searchify",
+      "args": ["mcp", "stdio"],
+      "env": {
+        "SEARCHIFY_ROOTS": "/home/fsat/dev"
+      }
+    }
+  }
+}
