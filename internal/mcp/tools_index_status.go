@@ -2,28 +2,43 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/spektr/searchify/internal/search"
 )
 
 type indexStatusInput struct{}
 
 type indexStatusOutput struct {
-	Status search.IndexStatus `json:"status"`
+	Status indexStatusPayload `json:"status"`
+}
+
+type indexStatusPayload struct {
+	IndexDir      string   `json:"index_dir"`
+	Roots         []string `json:"roots"`
+	DocumentCount int      `json:"document_count"`
+	ChunkCount    int      `json:"chunk_count"`
+	IndexedAt     *string  `json:"indexed_at"`
+	Ready         bool     `json:"ready"`
+	Message       string   `json:"message,omitempty"`
 }
 
 func (s *Server) indexStatus(ctx context.Context, req *mcp.CallToolRequest, _ indexStatusInput) (*mcp.CallToolResult, indexStatusOutput, error) {
 	_ = ctx
 	_ = req
 
-	return nil, indexStatusOutput{Status: search.IndexStatus{
-		IndexDir:      s.cfg.IndexDir,
-		Roots:         append([]string(nil), s.cfg.Roots...),
-		DocumentCount: 0,
-		ChunkCount:    0,
-		IndexedAt:     nil,
-		Ready:         false,
-		Message:       "index not built yet; use index_paths in a future release",
+	status, err := s.local.Status()
+	if err != nil {
+		return nil, indexStatusOutput{}, fmt.Errorf("index status: %w", err)
+	}
+
+	return nil, indexStatusOutput{Status: indexStatusPayload{
+		IndexDir:      status.IndexDir,
+		Roots:         status.Roots,
+		DocumentCount: status.DocumentCount,
+		ChunkCount:    status.ChunkCount,
+		IndexedAt:     status.IndexedAt,
+		Ready:         status.Ready,
+		Message:       status.Message,
 	}}, nil
 }

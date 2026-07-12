@@ -10,9 +10,15 @@ Hybrid text-search MCP server in Go.
 | MCP | `internal/mcp` | Tool registration and transports |
 | Config | `internal/config` | Env vars, path allowlist |
 | File search | `internal/file` | Single-file keyword scan |
-| Local index | `internal/local` | Persisted BM25 + vector index (phase 2–3) |
+| Local index | `internal/local` | SQLite FTS5 persisted keyword index (phase 2) |
 | Web | `internal/web` | LangSearch client (phase 4) |
 | Rank | `internal/rank` | RRF fusion, rerank helpers (phase 3) |
+
+## Storage (phase 2)
+
+- Index database: `{SEARCHIFY_INDEX_DIR}/index.db`
+- Engine: SQLite FTS5 via `modernc.org/sqlite` (pure Go)
+- Incremental updates keyed on file `mtime` + `size`
 
 ## MCP tools
 

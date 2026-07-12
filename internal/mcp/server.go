@@ -6,31 +6,45 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spektr/searchify/internal/config"
+	"github.com/spektr/searchify/internal/local"
 )
 
 const (
 	serverName    = "searchify"
-	serverVersion = "0.1.0"
+	serverVersion = "0.2.0"
 )
 
 type Server struct {
-	cfg *config.Config
-	mcp *mcp.Server
+	cfg   *config.Config
+	local *local.Service
+	mcp   *mcp.Server
 }
 
-func NewServer(cfg *config.Config) *Server {
-	s := &Server{cfg: cfg}
+func NewServer(cfg *config.Config) (*Server, error) {
+	localSvc, err := local.NewService(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("local index: %w", err)
+	}
+
+	s := &Server{
+		cfg:   cfg,
+		local: localSvc,
+	}
 	s.mcp = mcp.NewServer(&mcp.Implementation{
 		Name:    serverName,
 		Version: serverVersion,
 	}, nil)
 
 	s.registerTools()
-	return s
+	return s, nil
 }
 
 func (s *Server) RunStdio(ctx context.Context) error {
 	return s.mcp.Run(ctx, &mcp.StdioTransport{})
+}
+
+func (s *Server) Local() *local.Service {
+	return s.local
 }
 
 func (s *Server) registerTools() {
@@ -38,6 +52,16 @@ func (s *Server) registerTools() {
 		Name:        "search_file",
 		Description: "Search for text within a single local file under configured roots.",
 	}, s.searchFile)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "search_local",
+		Description: "Keyword search over the persisted local index built by index_paths.",
+	}, s.searchLocal)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "index_paths",
+		Description: "Build or incrementally update the local keyword index for paths under allowed roots.",
+	}, s.indexPaths)
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name:        "index_status",
