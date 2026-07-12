@@ -2,11 +2,10 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spektr/searchify/internal/file"
+	"github.com/spektr/searchify/internal/search"
 )
 
 type searchFileInput struct {
@@ -18,7 +17,7 @@ type searchFileInput struct {
 
 type searchFileOutput struct {
 	Count   int             `json:"count"`
-	Results json.RawMessage `json:"results"`
+	Results []search.Result `json:"results"`
 }
 
 func (s *Server) searchFile(ctx context.Context, req *mcp.CallToolRequest, input searchFileInput) (*mcp.CallToolResult, searchFileOutput, error) {
@@ -39,13 +38,8 @@ func (s *Server) searchFile(ctx context.Context, req *mcp.CallToolRequest, input
 		return toolErrorResult("search failed: %v", err), searchFileOutput{}, nil
 	}
 
-	payload, err := json.Marshal(results)
-	if err != nil {
-		return nil, searchFileOutput{}, fmt.Errorf("encode results: %w", err)
-	}
-
 	return nil, searchFileOutput{
 		Count:   len(results),
-		Results: payload,
+		Results: results,
 	}, nil
 }
