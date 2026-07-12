@@ -9,8 +9,24 @@ coverage.html
 .idea/
 .vscode/
 *.swp
+
+# Secrets and local env (keep .env.example committed)
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+credentials.json
+secrets/
+
+# Cursor MCP config may inline API keys in env; keep mcp.json.example
+.cursor/mcp.json
+
+# Local search index (default ~/.searchify or SEARCHIFY_INDEX_DIR inside repo)
 .searchify/
+index.db
+index.db-*
+*.db-shm
+*.db-wal
+
 .tools/
