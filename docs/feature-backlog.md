@@ -35,7 +35,7 @@ Architecture: [architecture.md](./architecture.md)
 
 | ID | Feature | Status | Spec |
 |----|---------|--------|------|
-| `phase3-hybrid-local` | In-process vectors, RRF, optional LangSearch rerank | ⬜ | [handoffs/current.md](./handoffs/current.md) |
+| `phase3-hybrid-local` | In-process vectors, RRF, optional LangSearch rerank | ✅ | [handoffs/current.md](./handoffs/current.md) |
 
 ## D. Web search integration
 

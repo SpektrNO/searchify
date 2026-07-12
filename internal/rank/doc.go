@@ -1,2 +1,2 @@
-// Package rank will implement RRF fusion and reranking helpers.
+// Package rank implements RRF fusion and LangSearch reranking helpers.
 package rank

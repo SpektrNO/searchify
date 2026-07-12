@@ -1,9 +1,9 @@
 # Handoff: phase3-hybrid-local
 
-**Status:** spec  
+**Status:** done  
 **Created:** 2026-07-12  
 **Specifier:** spec complete  
-**Developer:** pending
+**Developer:** complete
 
 ## GitHub tracking
 
@@ -11,7 +11,7 @@
 |-------|-------|
 | Feature id | `phase3-hybrid-local` |
 | Parent issue | — (create via `create-feature-issues.sh` when wired) |
-| Open tasks | `spec`, `engine`, `verify`, `docs` |
+| Open tasks | — |
 
 Task order: `audit` → `spec` → `engine` → `verify` → `docs`
 
@@ -152,17 +152,25 @@ Response unchanged shape: `{ count, results[] }` with `search.Result` entries; f
 
 ### Changes
 
--
+- Schema v2: `chunk_vectors` table; embeddings stored at index time via kjarni-go
+- `internal/local/embedder.go`, `vector.go`; search modes keyword / vector / hybrid with RRF
+- `internal/rank/rrf.go`, `rerank.go` (LangSearch API)
+- MCP `search_local` supports `mode` + `rerank`; `index_status` reports vector readiness
+- Server version 0.3.0; tests with stub embedder for hybrid paraphrase acceptance
 
 ### Verification
 
-- [ ] How tested
-- [ ] What remains manual
+- [x] `go test ./...` passes
+- [x] `go build -o bin/searchify ./cmd/searchify`
+- [ ] Manual: rebuild binary, reload MCP, index with `--force`, compare keyword vs hybrid
+- [ ] Manual: `rerank=true` with LangSearch API key
 
 ### Deviations from spec
 
-- None / list with rationale
+- None
 
 ### Follow-ups
 
--
+- HNSW or ANN if brute-force vector scan exceeds perf target at scale
+- Share LangSearch HTTP client with phase 4 `internal/web`
+

@@ -22,16 +22,16 @@ When ready for GitHub issues, copy `create-feature-issues.sh` and `load-feature-
 
 ## Status
 
-Phase 2 (local keyword index):
+Phase 3 (hybrid local search):
 
-- `index_paths` — incrementally index directories under allowed roots
-- `search_local` — FTS5 keyword search over indexed chunks
-- `index_status` — live document/chunk counts and readiness
+- `index_paths` — incrementally index + embed chunks (kjarni-go)
+- `search_local` — keyword, vector, or hybrid search with optional LangSearch rerank
+- `index_status` — document/chunk/vector counts and readiness
 - CLI: `searchify index [--force] <paths...>`
 
-Also available from Phase 1: `search_file` for single-file keyword search.
+Also available: `search_file` (single-file keyword search).
 
-Coming next: hybrid BM25+vector search (phase 3), web search, HTTP transport.
+Coming next: web search (phase 4), HTTP transport (phase 5).
 
 ## Requirements
 
@@ -93,14 +93,22 @@ Index or refresh files under one or more paths (must be under `SEARCHIFY_ROOTS`)
 
 ### `search_local`
 
-Keyword search over the persisted index (`mode: keyword` only in phase 2).
+Search the persisted index. Default mode is `hybrid` when vectors exist, otherwise `keyword`.
 
 ```json
 {
-  "query": "feature backlog",
-  "limit": 10
+  "query": "how does path allowlisting work",
+  "mode": "hybrid",
+  "limit": 10,
+  "rerank": false
 }
 ```
+
+Modes: `keyword` (FTS5 BM25), `vector` (cosine similarity), `hybrid` (RRF fusion). Set `rerank: true` to reorder results with LangSearch (requires `LANGSEARCH_API_KEY`).
+
+### Upgrading from phase 2
+
+Schema v2 adds vector storage. Existing keyword indexes keep working. Run `index_paths` with `"force": true` (or `searchify index --force`) once to embed all chunks.
 
 ### `search_file`
 

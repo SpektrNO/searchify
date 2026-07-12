@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -15,11 +16,15 @@ import (
 	"github.com/spektr/searchify/internal/config"
 )
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 type Service struct {
-	cfg *config.Config
-	db  *sql.DB
+	cfg          *config.Config
+	db           *sql.DB
+	embedOnce    sync.Once
+	embedder     Embedder
+	embedErr     error
+	embedForTest Embedder
 }
 
 type IndexReport struct {
@@ -51,21 +56,31 @@ func NewService(cfg *config.Config) (*Service, error) {
 }
 
 func (s *Service) Close() error {
+	if s.embedder != nil {
+		_ = s.embedder.Close()
+	}
 	if s.db == nil {
 		return nil
 	}
 	return s.db.Close()
 }
 
-func (s *Service) migrate() error {
+func (s *Service) currentSchemaVersion() (int, error) {
 	if _, err := s.db.Exec(`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)`); err != nil {
-		return err
+		return 0, err
 	}
-
 	var version int
 	err := s.db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_version`).Scan(&version)
 	if err != nil && !strings.Contains(err.Error(), "no such table") {
-		return fmt.Errorf("read schema version: %w", err)
+		return 0, fmt.Errorf("read schema version: %w", err)
+	}
+	return version, nil
+}
+
+func (s *Service) migrate() error {
+	version, err := s.currentSchemaVersion()
+	if err != nil {
+		return err
 	}
 	if version >= schemaVersion {
 		return nil
@@ -77,6 +92,28 @@ func (s *Service) migrate() error {
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	if version < 1 {
+		if err := s.migrateToV1(tx); err != nil {
+			return err
+		}
+		version = 1
+	}
+	if version < 2 {
+		if err := s.migrateToV2(tx); err != nil {
+			return err
+		}
+	}
+
+	if _, err := tx.Exec(`DELETE FROM schema_version`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO schema_version(version) VALUES (?)`, schemaVersion); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Service) migrateToV1(tx *sql.Tx) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS meta (
 			key TEXT PRIMARY KEY,
@@ -101,17 +138,37 @@ func (s *Service) migrate() error {
 	}
 	for _, stmt := range stmts {
 		if _, err := tx.Exec(stmt); err != nil {
-			return fmt.Errorf("migrate: %w", err)
+			return fmt.Errorf("migrate v1: %w", err)
 		}
 	}
+	return nil
+}
 
-	if _, err := tx.Exec(`DELETE FROM schema_version`); err != nil {
-		return err
+func (s *Service) migrateToV2(tx *sql.Tx) error {
+	if _, err := tx.Exec(`CREATE TABLE IF NOT EXISTS chunk_vectors (
+		chunk_id TEXT PRIMARY KEY,
+		embedding BLOB NOT NULL
+	)`); err != nil {
+		return fmt.Errorf("migrate v2: %w", err)
 	}
-	if _, err := tx.Exec(`INSERT INTO schema_version(version) VALUES (?)`, schemaVersion); err != nil {
-		return err
+	if _, err := tx.Exec(
+		`INSERT INTO meta(key, value) VALUES (?, ?)
+		 ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+		"embed_model", s.cfg.EmbedModel,
+	); err != nil {
+		return fmt.Errorf("migrate v2 meta: %w", err)
 	}
-	return tx.Commit()
+	return nil
+}
+
+func (s *Service) getEmbedder() (Embedder, error) {
+	if s.embedForTest != nil {
+		return s.embedForTest, nil
+	}
+	s.embedOnce.Do(func() {
+		s.embedder, s.embedErr = newKjarniEmbedder(s.cfg.EmbedModel)
+	})
+	return s.embedder, s.embedErr
 }
 
 func (s *Service) setMeta(key, value string) error {
@@ -149,6 +206,12 @@ func (s *Service) fileRecord(path string) (mtimeNS int64, size int64, exists boo
 }
 
 func (s *Service) deleteFileChunks(path string) error {
+	if _, err := s.db.Exec(
+		`DELETE FROM chunk_vectors WHERE chunk_id IN (SELECT id FROM chunks_fts WHERE file_path = ?)`,
+		path,
+	); err != nil {
+		return err
+	}
 	_, err := s.db.Exec(`DELETE FROM chunks_fts WHERE file_path = ?`, path)
 	return err
 }
@@ -162,14 +225,27 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) error
 		return err
 	}
 
+	chunkIDs := make([]string, 0, len(chunks))
+	texts := make([]string, 0, len(chunks))
 	for _, c := range chunks {
 		id := fmt.Sprintf("%s#chunk-%d", path, c.Index)
+		chunkIDs = append(chunkIDs, id)
+		texts = append(texts, c.Text)
 		_, err := s.db.Exec(
 			`INSERT INTO chunks_fts(id, file_path, chunk_index, line_start, line_end, text)
 			 VALUES (?, ?, ?, ?, ?, ?)`,
 			id, path, c.Index, c.LineStart, c.LineEnd, c.Text,
 		)
 		if err != nil {
+			return err
+		}
+	}
+
+	if len(texts) > 0 {
+		if err := s.embedAndStore(chunkIDs, texts); err != nil {
+			return err
+		}
+		if err := s.setMeta("embed_model", s.cfg.EmbedModel); err != nil {
 			return err
 		}
 	}
@@ -187,4 +263,24 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) error
 		path, info.ModTime().UnixNano(), info.Size(), hash, now,
 	)
 	return err
+}
+
+func (s *Service) embedAndStore(chunkIDs, texts []string) error {
+	embedder, err := s.getEmbedder()
+	if err != nil {
+		return fmt.Errorf("embedder: %w", err)
+	}
+	vectors, err := embedder.EncodeBatch(texts)
+	if err != nil {
+		return fmt.Errorf("embed chunks: %w", err)
+	}
+	if len(vectors) != len(chunkIDs) {
+		return fmt.Errorf("embedder returned %d vectors for %d chunks", len(vectors), len(chunkIDs))
+	}
+	for i, id := range chunkIDs {
+		if err := s.upsertChunkVector(id, vectors[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
