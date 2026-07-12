@@ -14,13 +14,16 @@ type indexStatusOutput struct {
 }
 
 type indexStatusPayload struct {
-	IndexDir      string   `json:"index_dir"`
-	Roots         []string `json:"roots"`
-	DocumentCount int      `json:"document_count"`
-	ChunkCount    int      `json:"chunk_count"`
-	IndexedAt     *string  `json:"indexed_at"`
-	Ready         bool     `json:"ready"`
-	Message       string   `json:"message,omitempty"`
+	IndexDir         string   `json:"index_dir"`
+	Roots            []string `json:"roots"`
+	DocumentCount    int      `json:"document_count"`
+	ChunkCount       int      `json:"chunk_count"`
+	VectorChunkCount int      `json:"vector_chunk_count"`
+	EmbedModel       string   `json:"embed_model,omitempty"`
+	VectorReady      bool     `json:"vector_ready"`
+	IndexedAt        *string  `json:"indexed_at"`
+	Ready            bool     `json:"ready"`
+	Message          string   `json:"message,omitempty"`
 }
 
 func (s *Server) indexStatus(ctx context.Context, req *mcp.CallToolRequest, _ indexStatusInput) (*mcp.CallToolResult, indexStatusOutput, error) {
@@ -33,12 +36,15 @@ func (s *Server) indexStatus(ctx context.Context, req *mcp.CallToolRequest, _ in
 	}
 
 	return nil, indexStatusOutput{Status: indexStatusPayload{
-		IndexDir:      status.IndexDir,
-		Roots:         status.Roots,
-		DocumentCount: status.DocumentCount,
-		ChunkCount:    status.ChunkCount,
-		IndexedAt:     status.IndexedAt,
-		Ready:         status.Ready,
-		Message:       status.Message,
+		IndexDir:         status.IndexDir,
+		Roots:            status.Roots,
+		DocumentCount:    status.DocumentCount,
+		ChunkCount:       status.ChunkCount,
+		VectorChunkCount: status.VectorChunkCount,
+		EmbedModel:       status.EmbedModel,
+		VectorReady:      status.VectorReady,
+		IndexedAt:        status.IndexedAt,
+		Ready:            status.Ready,
+		Message:          status.Message,
 	}}, nil
 }

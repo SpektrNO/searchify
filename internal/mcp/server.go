@@ -11,7 +11,7 @@ import (
 
 const (
 	serverName    = "searchify"
-	serverVersion = "0.2.0"
+	serverVersion = "0.3.0"
 )
 
 type Server struct {
@@ -55,7 +55,7 @@ func (s *Server) registerTools() {
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name:        "search_local",
-		Description: "Keyword search over the persisted local index built by index_paths.",
+		Description: "Hybrid local search (keyword, vector, hybrid) over the persisted index.",
 	}, s.searchLocal)
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
