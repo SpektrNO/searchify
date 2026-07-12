@@ -22,13 +22,16 @@ When ready for GitHub issues, copy `create-feature-issues.sh` and `load-feature-
 
 ## Status
 
-Phase 1 scaffolding:
+Phase 2 (local keyword index):
 
-- MCP server over stdio (Cursor / Claude Desktop)
-- `search_file` tool — keyword search within a single file
-- `index_status` tool — index readiness stub
+- `index_paths` — incrementally index directories under allowed roots
+- `search_local` — FTS5 keyword search over indexed chunks
+- `index_status` — live document/chunk counts and readiness
+- CLI: `searchify index [--force] <paths...>`
 
-Coming next: local indexing, hybrid BM25+vector search, web search, HTTP transport.
+Also available from Phase 1: `search_file` for single-file keyword search.
+
+Coming next: hybrid BM25+vector search (phase 3), web search, HTTP transport.
 
 ## Requirements
 
@@ -49,6 +52,18 @@ export SEARCHIFY_ROOTS="/home/you/dev"
 ./bin/searchify mcp stdio
 ```
 
+## Index and search (CLI)
+
+```bash
+export SEARCHIFY_ROOTS="/home/you/dev/spektr/searchify"
+export SEARCHIFY_INDEX_DIR="/tmp/searchify-index"   # optional
+
+./bin/searchify index docs/
+# indexed=N updated=N skipped=N errors=N
+```
+
+Then use MCP tools `search_local` and `index_status` from Cursor.
+
 ## Cursor configuration
 
 Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP settings and adjust paths.
@@ -64,6 +79,28 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_EMBED_MODEL` | no | Embedding model (default: `minilm-l6-v2`) |
 
 ## MCP tools
+
+### `index_paths`
+
+Index or refresh files under one or more paths (must be under `SEARCHIFY_ROOTS`).
+
+```json
+{
+  "paths": ["docs"],
+  "force": false
+}
+```
+
+### `search_local`
+
+Keyword search over the persisted index (`mode: keyword` only in phase 2).
+
+```json
+{
+  "query": "feature backlog",
+  "limit": 10
+}
+```
 
 ### `search_file`
 

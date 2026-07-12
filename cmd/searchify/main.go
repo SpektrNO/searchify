@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/spektr/searchify/internal/config"
+	"github.com/spektr/searchify/internal/local"
 	searchmcp "github.com/spektr/searchify/internal/mcp"
 )
 
@@ -52,7 +53,12 @@ func runMCP(args []string) {
 		log.Fatal(err)
 	}
 
-	server := searchmcp.NewServer(cfg)
+	server, err := searchmcp.NewServer(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer server.Local().Close()
+
 	if err := server.RunStdio(context.Background()); err != nil {
 		log.Fatal(err)
 	}
@@ -64,8 +70,43 @@ func runServe(args []string) {
 }
 
 func runIndex(args []string) {
-	fmt.Fprintln(os.Stderr, "searchify index: not implemented yet (phase 2)")
-	os.Exit(2)
+	fs := flag.NewFlagSet("index", flag.ExitOnError)
+	force := fs.Bool("force", false, "re-index files even when metadata is unchanged")
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: searchify index [--force] <path...>")
+	}
+	if err := fs.Parse(args); err != nil {
+		log.Fatal(err)
+	}
+	if fs.NArg() == 0 {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	svc, err := local.NewService(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer svc.Close()
+
+	report, err := svc.IndexPaths(fs.Args(), *force)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("indexed=%d updated=%d skipped=%d errors=%d\n",
+		report.Indexed, report.Updated, report.Skipped, report.Errors)
+	for _, msg := range report.Messages {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", msg)
+	}
+	if report.Errors > 0 {
+		os.Exit(1)
+	}
 }
 
 func printUsage() {
@@ -73,8 +114,9 @@ func printUsage() {
 
 usage:
   searchify mcp stdio          Run MCP server over stdin/stdout
+  searchify index [--force] <paths...>
+                               Build or refresh local keyword index
   searchify serve http         Run MCP server over HTTP (coming soon)
-  searchify index <paths...>   Build or refresh local index (coming soon)
 
 environment:
   SEARCHIFY_ROOTS              Required comma-separated allowed search roots

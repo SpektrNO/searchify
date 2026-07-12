@@ -29,7 +29,7 @@ Architecture: [architecture.md](./architecture.md)
 
 | ID | Feature | Status | Spec |
 |----|---------|--------|------|
-| `phase2-local-keyword` | index_paths + search_local (BM25) | 🟡 | [handoffs/current.md](./handoffs/current.md) |
+| `phase2-local-keyword` | index_paths + search_local (BM25) | ✅ | [handoffs/current.md](./handoffs/current.md) |
 
 ## C. Hybrid local search
 
