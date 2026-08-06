@@ -11,8 +11,8 @@ Hybrid text-search MCP server in Go.
 | Config | `internal/config` | Env vars, path allowlist |
 | File search | `internal/file` | Single-file keyword scan |
 | Local index | `internal/local` | SQLite FTS5 + chunk vectors (phase 2–3) |
-| Web | `internal/web` | LangSearch client (phase 4) |
-| Rank | `internal/rank` | RRF fusion, LangSearch rerank (phase 3) |
+| Web | `internal/web` | LangSearch web search + shared HTTP client (phase 4) |
+| Rank | `internal/rank` | RRF fusion; rerank delegates to `internal/web` (phase 3–4) |
 
 ## Storage (phase 2–3)
 
@@ -31,6 +31,13 @@ Hybrid text-search MCP server in Go.
 | `index_paths` | 2 | Build/update local index |
 | `search_local` | 2–3 | Query persisted index |
 | `search_web` | 4 | Internet search via LangSearch |
+
+## Web search (phase 4)
+
+- Client: `internal/web.Client` (shared by `search_web` and local rerank)
+- Endpoint: `POST https://api.langsearch.com/v1/web-search`
+- In-memory TTL cache (~15 minutes, max 128 entries)
+- HTTP 429: exponential backoff with jitter (up to 3 retries)
 
 ## Search modes
 

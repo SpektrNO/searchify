@@ -1,6 +1,6 @@
 # Searchify
 
-Hybrid text search MCP server written in Go. Search local files and (soon) indexed corpora and the web via LangSearch.
+Hybrid text search MCP server written in Go. Search local files, indexed corpora, and the web via LangSearch.
 
 ## Docs
 
@@ -22,16 +22,16 @@ When ready for GitHub issues, copy `create-feature-issues.sh` and `load-feature-
 
 ## Status
 
-Phase 3 (hybrid local search):
+Phase 4 (web search):
 
-- `index_paths` — incrementally index + embed chunks (kjarni-go)
+- `search_web` — LangSearch internet search with summaries, TTL cache, and 429 backoff
 - `search_local` — keyword, vector, or hybrid search with optional LangSearch rerank
-- `index_status` — document/chunk/vector counts and readiness
+- `index_paths` / `index_status` — local index + `langsearch_configured`
 - CLI: `searchify index [--force] <paths...>`
 
 Also available: `search_file` (single-file keyword search).
 
-Coming next: web search (phase 4), HTTP transport (phase 5).
+Coming next: HTTP transport + hardening (phase 5).
 
 ## Requirements
 
@@ -74,7 +74,7 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 |----------|----------|-------------|
 | `SEARCHIFY_ROOTS` | yes | Comma-separated allowed directory roots |
 | `SEARCHIFY_INDEX_DIR` | no | Index path (default: `~/.searchify/index`) |
-| `LANGSEARCH_API_KEY` | no | LangSearch API key (web search / rerank) |
+| `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
 | `SEARCHIFY_HTTP_TOKEN` | no | Bearer token for HTTP mode |
 | `SEARCHIFY_EMBED_MODEL` | no | Embedding model (default: `minilm-l6-v2`) |
 
@@ -110,6 +110,21 @@ Modes: `keyword` (FTS5 BM25), `vector` (cosine similarity), `hybrid` (RRF fusion
 
 Schema v2 adds vector storage. Existing keyword indexes keep working. Run `index_paths` with `"force": true` (or `searchify index --force`) once to embed all chunks.
 
+### `search_web`
+
+Internet search via LangSearch. Requires `LANGSEARCH_API_KEY`. Results are cached in-memory for ~15 minutes.
+
+```json
+{
+  "query": "Go MCP Streamable HTTP transport",
+  "limit": 5,
+  "freshness": "oneMonth",
+  "summary": true
+}
+```
+
+`freshness`: `oneDay` | `oneWeek` | `oneMonth` | `oneYear` | `noLimit` (default). `summary` defaults to `true` for LLM-friendly snippets.
+
 ### `search_file`
 
 Search within one file under allowed roots.
@@ -124,7 +139,7 @@ Search within one file under allowed roots.
 
 ### `index_status`
 
-Returns configured roots, index directory, and whether a local index exists.
+Returns configured roots, index directory, vector readiness, and `langsearch_configured`.
 
 ## Project layout
 

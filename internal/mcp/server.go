@@ -7,16 +7,18 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spektr/searchify/internal/config"
 	"github.com/spektr/searchify/internal/local"
+	"github.com/spektr/searchify/internal/web"
 )
 
 const (
 	serverName    = "searchify"
-	serverVersion = "0.3.0"
+	serverVersion = "0.4.0"
 )
 
 type Server struct {
 	cfg   *config.Config
 	local *local.Service
+	web   *web.Client
 	mcp   *mcp.Server
 }
 
@@ -29,6 +31,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	s := &Server{
 		cfg:   cfg,
 		local: localSvc,
+		web:   web.NewClient(cfg.LangSearch),
 	}
 	s.mcp = mcp.NewServer(&mcp.Implementation{
 		Name:    serverName,
@@ -57,6 +60,11 @@ func (s *Server) registerTools() {
 		Name:        "search_local",
 		Description: "Hybrid local search (keyword, vector, hybrid) over the persisted index.",
 	}, s.searchLocal)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "search_web",
+		Description: "Search the internet via LangSearch. Requires LANGSEARCH_API_KEY.",
+	}, s.searchWeb)
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name:        "index_paths",

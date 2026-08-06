@@ -12,6 +12,7 @@ Shipped features registry. Complements [feature-backlog.md](./feature-backlog.md
 
 | Date | ID | Feature | GitHub | Notes |
 |------|-----|---------|--------|-------|
+| 2026-08-07 | `phase4-web-search` | LangSearch web API + search_web tool | — | search_web + web.Client cache/429 |
 | 2026-07-11 | `phase1-mcp-skeleton` | MCP stdio server, search_file, index_status | — | Initial project scaffolding |
 | 2026-07-12 | `phase2-local-keyword` | index_paths + search_local (BM25) | — | SQLite FTS5 index_paths search_local CLI index |
 | 2026-07-12 | `phase3-hybrid-local` | In-process vectors, RRF, optional LangSearch rerank | — | Completed via spec→implement pipeline |
@@ -36,3 +37,9 @@ Shipped features registry. Complements [feature-backlog.md](./feature-backlog.md
 | ID | Feature | Completed | Spec | Notes |
 |----|---------|-----------|------|-------|
 | `phase3-hybrid-local` | In-process vectors, RRF, optional LangSearch rerank | 2026-07-12 | [handoffs/current.md](./handoffs/current.md) | Completed via spec→implement pipeline |
+
+## D. Web search integration
+
+| ID | Feature | Completed | Spec | Notes |
+|----|---------|-----------|------|-------|
+| `phase4-web-search` | LangSearch web API + search_web tool | 2026-08-07 | [handoffs/archive/2026-08-07-phase4-web-search.md](./handoffs/archive/2026-08-07-phase4-web-search.md) | search_web + web.Client cache/429 |

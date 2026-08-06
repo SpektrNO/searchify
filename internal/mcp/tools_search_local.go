@@ -9,6 +9,7 @@ import (
 	"github.com/spektr/searchify/internal/local"
 	"github.com/spektr/searchify/internal/rank"
 	"github.com/spektr/searchify/internal/search"
+	"github.com/spektr/searchify/internal/web"
 )
 
 type searchLocalInput struct {
@@ -46,7 +47,7 @@ func (s *Server) searchLocal(ctx context.Context, req *mcp.CallToolRequest, inpu
 	}
 
 	if input.Rerank && len(results) > 0 {
-		results, err = rerankResults(ctx, s.cfg.LangSearch, input.Query, results, limit)
+		results, err = rerankResults(ctx, s.web, input.Query, results, limit)
 		if err != nil {
 			return toolErrorResult("rerank failed: %v", err), searchLocalOutput{}, nil
 		}
@@ -80,7 +81,7 @@ func (e errUnknownMode) Error() string {
 	return "unknown mode " + strconv.Quote(e.mode)
 }
 
-func rerankResults(ctx context.Context, apiKey, query string, results []search.Result, limit int) ([]search.Result, error) {
+func rerankResults(ctx context.Context, client *web.Client, query string, results []search.Result, limit int) ([]search.Result, error) {
 	docs := make([]string, len(results))
 	for i, r := range results {
 		docs[i] = r.Snippet
@@ -94,7 +95,7 @@ func rerankResults(ctx context.Context, apiKey, query string, results []search.R
 		topN = len(results)
 	}
 
-	ranked, err := rank.Rerank(ctx, apiKey, query, docs, topN)
+	ranked, err := rank.RerankWithClient(ctx, client, query, docs, topN)
 	if err != nil {
 		return nil, err
 	}

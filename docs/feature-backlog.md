@@ -41,7 +41,7 @@ Architecture: [architecture.md](./architecture.md)
 
 | ID | Feature | Status | Spec |
 |----|---------|--------|------|
-| `phase4-web-search` | LangSearch web API + search_web tool | ⬜ | [architecture.md](./architecture.md) |
+| `phase4-web-search` | LangSearch web API + search_web tool | ✅ | [handoffs/archive/2026-08-07-phase4-web-search.md](./handoffs/archive/2026-08-07-phase4-web-search.md) |
 
 ## E. HTTP and hardening
 
