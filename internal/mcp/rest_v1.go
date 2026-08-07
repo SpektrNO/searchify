@@ -118,6 +118,28 @@ func (s *Server) handleV1Files(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleV1Stats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	start := time.Now()
+	stats, err := s.local.Stats()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "stats failed: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, indexStatsOutput{
+		FileCount:        stats.FileCount,
+		FolderCount:      stats.FolderCount,
+		VectorChunkCount: stats.VectorChunkCount,
+		TotalBytes:       stats.TotalBytes,
+		LastIndexChange:  stats.LastIndexChange,
+		DurationMs:       elapsedMs(start),
+	})
+}
+
 func (s *Server) executeSearchLocal(ctx context.Context, input searchLocalInput) (searchLocalOutput, search.Mode, error) {
 	mode, err := parseSearchMode(input.Mode)
 	if err != nil {

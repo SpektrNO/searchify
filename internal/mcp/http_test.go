@@ -222,6 +222,27 @@ func TestRESTSearchAndIndex(t *testing.T) {
 	if filesOut.Count != 1 || len(filesOut.Paths) != 1 || filesOut.Paths[0] != doc {
 		t.Fatalf("unexpected files response: %+v", filesOut)
 	}
+
+	statsReq, err := http.NewRequest(http.MethodGet, srv.URL+"/v1/stats", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statsReq.Header.Set("Authorization", "Bearer secret")
+	statsResp, err := http.DefaultClient.Do(statsReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer statsResp.Body.Close()
+	if statsResp.StatusCode != http.StatusOK {
+		t.Fatalf("stats status %d", statsResp.StatusCode)
+	}
+	var statsOut indexStatsOutput
+	if err := json.NewDecoder(statsResp.Body).Decode(&statsOut); err != nil {
+		t.Fatal(err)
+	}
+	if statsOut.FileCount != 1 || statsOut.TotalBytes <= 0 || statsOut.LastIndexChange == nil {
+		t.Fatalf("unexpected stats: %+v", statsOut)
+	}
 }
 
 func restPOST(t *testing.T, url, token, body string) *http.Response {

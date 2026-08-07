@@ -160,6 +160,26 @@ func TestListIndexedFiles(t *testing.T) {
 	if len(under) != 1 || under[0] != b {
 		t.Fatalf("expected only %s, got %v", b, under)
 	}
+
+	stats, err := svc.Stats()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.FileCount != 2 {
+		t.Fatalf("file_count=%d", stats.FileCount)
+	}
+	if stats.FolderCount < 2 {
+		t.Fatalf("folder_count=%d want >=2 (root + sub)", stats.FolderCount)
+	}
+	if stats.TotalBytes <= 0 {
+		t.Fatalf("total_bytes=%d", stats.TotalBytes)
+	}
+	if stats.LastIndexChange == nil || *stats.LastIndexChange == "" {
+		t.Fatal("expected last_index_change")
+	}
+	if stats.VectorChunkCount <= 0 {
+		t.Fatalf("vector_chunk_count=%d", stats.VectorChunkCount)
+	}
 }
 
 func TestHybridFindsParaphrase(t *testing.T) {
