@@ -129,7 +129,7 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 		s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: status})
 
 		// Drop native ONNX RSS (not managed by Go GC) and return pages to the OS.
-		if s.cfg.EmbedReload && !s.cfg.SkipEmbed {
+		if s.cfg.EmbedReload && s.cfg.UseInProcessEmbed() {
 			s.dropEmbedder()
 		}
 		runtime.GC()

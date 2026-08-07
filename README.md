@@ -150,17 +150,19 @@ Typical flow:
 
 CLI `index` prints progress on **stderr** (`[i/N] indexing …`) so long catalogues are distinguishable from a hang; the final `indexed=` line is on stdout.
 
-**Large corpora / Windows OOM:** the ONNX embedder (kjarni) can grow native RSS into many GB. Prefer a two-pass ingest:
+**Large corpora / Windows OOM:** the ONNX embedder (kjarni) can grow native RSS into many GB. Default `SEARCHIFY_EMBED_BACKEND=process` keeps ONNX out of the long-lived index process (spawns `searchify embed --file` per file). Alternatives:
 
 ```bash
-# Pass 1 — keyword/FTS only (low RAM)
+# FTS only (lowest RAM; use mode=keyword)
+# Put flags BEFORE or AFTER paths — both work:
 searchify index --skip-embed /path/to/corpus
+searchify index /path/to/corpus --skip-embed
 
-# Pass 2 — optional vectors later (or omit and use mode=keyword)
-# unset SEARCHIFY_SKIP_EMBED; searchify index --force /path/to/corpus
+# Confirm on stderr: "keyword-only — ONNX/embedder will NOT load"
+# If you instead see "EMBED_BACKEND=process" or "onnx", skip-embed did not apply.
 ```
 
-Or set `SEARCHIFY_SKIP_EMBED=1` in the environment. Hybrid/vector search needs pass 2; `mode=keyword` works after pass 1.
+Or set `SEARCHIFY_SKIP_EMBED=1` / `SEARCHIFY_EMBED_BACKEND=none` (no quotes inside the value in CMD).
 
 ### Watch vs serve
 
@@ -186,6 +188,10 @@ export SEARCHIFY_INDEX_DIR="/tmp/searchify-index"   # optional
 ./bin/searchify index docs/
 # stderr progress: index: N indexable file(s) / [i/N] indexing path …
 # indexed=N updated=N skipped=N errors=N
+
+# Optional: backfill / repair vectors without re-extracting
+./bin/searchify embed docs/
+# files=N embedded=N skipped=N errors=N
 ```
 
 Then use MCP tools `search_local` and `index_status` from Cursor.
@@ -210,8 +216,9 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_MAX_EXTRACT_BYTES` | no | Truncate extracted text before chunking (default `524288` / 512 KiB) |
 | `SEARCHIFY_MAX_CHUNKS_PER_FILE` | no | Max chunks embedded per file (default `64`) |
 | `SEARCHIFY_EMBED_BATCH` | no | ONNX batch size (default `1`) |
-| `SEARCHIFY_SKIP_EMBED` | no | `1`/`true` — FTS/keyword index only; **do not load ONNX** (recommended for large Windows corpora) |
-| `SEARCHIFY_EMBED_RELOAD` | no | Close/reopen embedder after each file to reclaim native RSS (default **on**; set `0` to disable) |
+| `SEARCHIFY_EMBED_BACKEND` | no | `process` (default: spawn `searchify embed` per file), `onnx` (in-process), `none` (FTS only) |
+| `SEARCHIFY_SKIP_EMBED` | no | `1`/`true` — FTS/keyword index only; **do not load ONNX** (same idea as `EMBED_BACKEND=none`) |
+| `SEARCHIFY_EMBED_RELOAD` | no | Close/reopen embedder after each file when `backend=onnx` (default **on**; set `0` to disable) |
 | `SEARCHIFY_EXTRACT_TIMEOUT` | no | Per-file extract deadline (Go duration, default `30s`) |
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
 | `SEARCHIFY_HTTP_TOKEN` | for HTTP | Bearer token (required to start `serve http`) |
@@ -239,7 +246,7 @@ Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.y
 
 Extracted formats: `.pdf` `.docx` `.xlsx` `.csv` `.html`/`.htm`, plus stretch `.pptx` `.odt`/`.ods`/`.odp` `.rtf` `.eml`. Images (`.png` `.jpg` `.jpeg` `.webp` `.tif` `.tiff` `.gif`) index only when `SEARCHIFY_OCR=1`. Other extensions are ignored. `index_status` reports `ocr_enabled` and `index_extensions`.
 
-Indexing caps memory via `SEARCHIFY_MAX_FILE_BYTES` (default 2 MiB), `SEARCHIFY_MAX_EXTRACT_BYTES` (512 KiB), `SEARCHIFY_MAX_CHUNKS_PER_FILE` (64), batched embeds (`SEARCHIFY_EMBED_BATCH`, default 1), optional `SEARCHIFY_SKIP_EMBED` / `index --skip-embed` (FTS only), and embedder reload after each file (`SEARCHIFY_EMBED_RELOAD`, default on).
+Indexing caps memory via `SEARCHIFY_MAX_FILE_BYTES` (default 2 MiB), `SEARCHIFY_MAX_EXTRACT_BYTES` (512 KiB), `SEARCHIFY_MAX_CHUNKS_PER_FILE` (64), batched embeds (`SEARCHIFY_EMBED_BATCH`, default 1), default `SEARCHIFY_EMBED_BACKEND=process` (short-lived embed worker), optional `SEARCHIFY_SKIP_EMBED` / `index --skip-embed` / `backend=none` (FTS only), and embedder reload when `backend=onnx` (`SEARCHIFY_EMBED_RELOAD`, default on).
 
 ### `remove_paths`
 

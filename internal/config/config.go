@@ -29,6 +29,7 @@ const (
 	EnvMaxExtractBytes = "SEARCHIFY_MAX_EXTRACT_BYTES"
 	EnvSkipEmbed       = "SEARCHIFY_SKIP_EMBED"
 	EnvEmbedReload     = "SEARCHIFY_EMBED_RELOAD"
+	EnvEmbedBackend    = "SEARCHIFY_EMBED_BACKEND"
 
 	defaultEmbedModel      = "minilm-l6-v2"
 	defaultHTTPAddr        = ":8080"
@@ -39,6 +40,16 @@ const (
 	defaultEmbedBatch      = 1 // ONNX batching ballooned RSS; single-chunk is safer
 	defaultMaxChunksFile   = 64
 	defaultMaxExtractBytes = int64(512 * 1024)
+	defaultEmbedBackend    = EmbedBackendProcess
+)
+
+// EmbedBackend selects how vectors are produced during/after index.
+type EmbedBackend string
+
+const (
+	EmbedBackendNone    EmbedBackend = "none"    // FTS only (same idea as SkipEmbed)
+	EmbedBackendONNX    EmbedBackend = "onnx"    // in-process kjarni (long-lived RSS risk)
+	EmbedBackendProcess EmbedBackend = "process" // spawn short-lived `searchify embed` (default)
 )
 
 type Config struct {
@@ -61,6 +72,34 @@ type Config struct {
 	MaxExtractBytes  int64 // truncate extracted text before chunking (default 512KiB)
 	SkipEmbed        bool  // FTS-only index; skip ONNX (huge RAM savings)
 	EmbedReload      bool  // close/reopen embedder after each file to drop native RSS
+	EmbedBackend     EmbedBackend
+}
+
+// EffectiveEmbedBackend resolves SkipEmbed and empty EmbedBackend.
+// Empty backend (manual test Config) keeps in-process ONNX; config.Load defaults to process.
+func (c *Config) EffectiveEmbedBackend() EmbedBackend {
+	if c == nil || c.SkipEmbed {
+		return EmbedBackendNone
+	}
+	if c.EmbedBackend == "" {
+		return EmbedBackendONNX
+	}
+	return c.EmbedBackend
+}
+
+// WantVectors is true when index/embed should produce chunk_vectors.
+func (c *Config) WantVectors() bool {
+	return c.EffectiveEmbedBackend() != EmbedBackendNone
+}
+
+// UseProcessEmbed spawns a short-lived embed worker (parent never loads ONNX).
+func (c *Config) UseProcessEmbed() bool {
+	return c.EffectiveEmbedBackend() == EmbedBackendProcess
+}
+
+// UseInProcessEmbed runs kjarni inside this process.
+func (c *Config) UseInProcessEmbed() bool {
+	return c.EffectiveEmbedBackend() == EmbedBackendONNX
 }
 
 func Load() (*Config, error) {
@@ -113,6 +152,10 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	backend, err := parseEmbedBackend(os.Getenv(EnvEmbedBackend))
+	if err != nil {
+		return nil, err
+	}
 
 	return &Config{
 		Roots:            roots,
@@ -134,7 +177,8 @@ func Load() (*Config, error) {
 		MaxExtractBytes:  maxExtract,
 		SkipEmbed:        parseBoolEnv(os.Getenv(EnvSkipEmbed)),
 		// Default ON: native ONNX RSS is not returned to the OS without Close.
-		EmbedReload: parseBoolEnvDefaultTrue(os.Getenv(EnvEmbedReload)),
+		EmbedReload:  parseBoolEnvDefaultTrue(os.Getenv(EnvEmbedReload)),
+		EmbedBackend: backend,
 	}, nil
 }
 
@@ -263,6 +307,19 @@ func parseBoolEnvDefaultTrue(raw string) bool {
 		return false
 	default:
 		return true
+	}
+}
+
+func parseEmbedBackend(raw string) (EmbedBackend, error) {
+	raw = strings.ToLower(strings.TrimSpace(raw))
+	if raw == "" {
+		return defaultEmbedBackend, nil
+	}
+	switch EmbedBackend(raw) {
+	case EmbedBackendNone, EmbedBackendONNX, EmbedBackendProcess:
+		return EmbedBackend(raw), nil
+	default:
+		return "", fmt.Errorf("%s must be one of: none, onnx, process (got %q)", EnvEmbedBackend, raw)
 	}
 }
 
