@@ -64,3 +64,4 @@ Optional follow-ups — not required for v1. Spec with `/spec-only` when priorit
 | `opt-auto-index-watch` | Optional fsnotify (or periodic rescan) on configured watch paths to index new/changed files | ⬜ | [architecture.md](./architecture.md) |
 | `opt-relative-path-resolve` | Resolve relative `search_file` / index paths against roots or workspace, not MCP process cwd | ⬜ | [architecture.md](./architecture.md) |
 | `opt-richer-file-types` | Expand indexable types (e.g. PDF/Office text extractors) beyond current extension allowlist | ⬜ | [architecture.md](./architecture.md) |
+| `opt-timing-metrics` | Return process timing (e.g. `duration_ms`) on search/index responses; log p50/p95-friendly fields for corpus health | ⬜ | [architecture.md](./architecture.md) |

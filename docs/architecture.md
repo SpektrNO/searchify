@@ -63,6 +63,7 @@ Hybrid text-search MCP server in Go.
 - Auto-index: optional watch/rescan (`opt-auto-index-watch`)
 - Path UX: relative path resolution (`opt-relative-path-resolve`)
 - File types: richer extractors beyond the extension allowlist (`opt-richer-file-types`)
+- Observability: return/log per-request process time so large corpora are visible before HNSW (`opt-timing-metrics`)
 
 ## Optional scale
 
