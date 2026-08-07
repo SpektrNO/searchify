@@ -103,6 +103,22 @@ func TestPDFPlainText(t *testing.T) {
 	}
 }
 
+func TestPDFCorruptDoesNotPanic(t *testing.T) {
+	// Malformed PDFs can panic inside ledongthuc/pdf; indexing must fail soft.
+	reg := extract.NewRegistry(extract.Options{})
+	// Catalog points at missing / wrong generation objects (similar to vault PDFs).
+	data := []byte("%PDF-1.4\n1 0 obj<< /Type /Catalog /Pages 8 0 R >>endobj\ntrailer<< /Root 1 0 R /Size 2 >>\nstartxref\n0\n%%EOF\n")
+	defer func() {
+		if rec := recover(); rec != nil {
+			t.Fatalf("extract panicked: %v", rec)
+		}
+	}()
+	_, _, err := reg.Extract(context.Background(), "bad.pdf", bytes.NewReader(data), int64(len(data)))
+	if err == nil {
+		t.Fatal("expected extract error for corrupt pdf")
+	}
+}
+
 func TestImageOCROffIsSkip(t *testing.T) {
 	reg := extract.NewRegistry(extract.Options{OCREnabled: false})
 	_, _, err := reg.Extract(context.Background(), "a.png", bytes.NewReader([]byte("notanimage")), 10)
