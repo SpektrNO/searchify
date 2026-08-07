@@ -31,7 +31,7 @@ Cursor shortcuts: `/spec-only`, `/implement-handoff`, `/spec-and-implement`, `/l
 
 Phase 5 (HTTP + hardening):
 
-- `searchify serve http` — Streamable HTTP MCP with Bearer auth, timeouts, `/healthz`, plus REST `POST /v1/search`, `POST /v1/index`, `GET /v1/files`
+- `searchify serve http` — Streamable HTTP MCP with Bearer auth, timeouts, `/healthz`, plus REST `POST /v1/search`, `POST /v1/index`, `GET /v1/files`, `GET /v1/stats`
 - `search_web` / `search_local` / `search_file` / `index_*` — unchanged over stdio and HTTP
 - Benchmarks: `make bench` (keyword + hybrid, report-only)
 
@@ -114,6 +114,10 @@ curl -sS -X POST http://127.0.0.1:8080/v1/search \
 # List indexed file paths (optional ?prefix=)
 curl -sS "http://127.0.0.1:8080/v1/files" \
   -H "Authorization: Bearer dev-secret"
+
+# Index stats
+curl -sS "http://127.0.0.1:8080/v1/stats" \
+  -H "Authorization: Bearer dev-secret"
 ```
 
 | Method | Path | Body / query |
@@ -121,6 +125,7 @@ curl -sS "http://127.0.0.1:8080/v1/files" \
 | `POST` | `/v1/search` | `query`, optional `limit`, `mode`, `rerank` |
 | `POST` | `/v1/index` | `paths`, optional `force` |
 | `GET` | `/v1/files` | optional `prefix` query (exact path or directory prefix) |
+| `GET` | `/v1/stats` | — (`file_count`, `folder_count`, `vector_chunk_count`, `total_bytes`, `last_index_change`) |
 
 ## Index and search (CLI)
 
@@ -268,6 +273,10 @@ Returns paths currently stored in the local index. Optional `prefix` limits to t
   "prefix": ""
 }
 ```
+
+### `index_stats`
+
+Aggregate inventory: `file_count`, `folder_count` (unique parent dirs of indexed files), `vector_chunk_count`, `total_bytes`, `last_index_change` (when index content last changed). Does not track no-op scans.
 
 ## Project layout
 

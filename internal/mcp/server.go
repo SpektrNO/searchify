@@ -13,7 +13,7 @@ import (
 
 const (
 	serverName    = "searchify"
-	serverVersion = "0.7.1"
+	serverVersion = "0.7.2"
 )
 
 type Server struct {
@@ -122,6 +122,11 @@ func (s *Server) registerTools() {
 		Name:        "list_indexed_files",
 		Description: "List paths currently stored in the local index (optional prefix filter).",
 	}, s.listIndexedFiles)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "index_stats",
+		Description: "Aggregate index stats: file/folder counts, vector chunks, total bytes, last_index_change.",
+	}, s.indexStats)
 }
 
 func toolErrorResult(format string, args ...any) *mcp.CallToolResult {
