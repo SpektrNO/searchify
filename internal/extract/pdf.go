@@ -29,22 +29,26 @@ func (e pdfExtractor) Extract(ctx context.Context, path string, r io.Reader, siz
 		return "", nil, err
 	}
 
-	reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return "", nil, fmt.Errorf("pdf open: %w", err)
-	}
-
-	plain, err := reader.GetPlainText()
-	if err != nil {
-		return "", nil, fmt.Errorf("pdf text: %w", err)
-	}
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(plain); err != nil {
-		return "", nil, fmt.Errorf("pdf read: %w", err)
-	}
-	text := strings.TrimSpace(buf.String())
+	text, err := plainTextFromPDF(data)
 	var warn []string
+	if err != nil {
+		// ledongthuc/pdf panics on some real-world PDFs; treat as extract failure.
+		if e.opts.OCREnabled {
+			ocrText, ocrWarn, ocrErr := ocrPDFViaPoppler(ctx, path, data, e.opts.OCRLang)
+			warn = append(warn, fmt.Sprintf("pdf text extract failed (%v); trying OCR", err))
+			warn = append(warn, ocrWarn...)
+			if ocrErr != nil {
+				return "", warn, fmt.Errorf("pdf extract failed: %v; OCR failed: %w", err, ocrErr)
+			}
+			if strings.TrimSpace(ocrText) == "" {
+				return "", warn, fmt.Errorf("pdf extract failed: %v; OCR returned empty", err)
+			}
+			return ocrText, warn, nil
+		}
+		return "", nil, fmt.Errorf("pdf extract: %w", err)
+	}
 
+	text = strings.TrimSpace(text)
 	if text == "" {
 		if e.opts.OCREnabled {
 			ocrText, ocrWarn, ocrErr := ocrPDFViaPoppler(ctx, path, data, e.opts.OCRLang)
@@ -60,4 +64,30 @@ func (e pdfExtractor) Extract(ctx context.Context, path string, r io.Reader, siz
 		return "", nil, Skip("pdf has no extractable text (scanned?); set SEARCHIFY_OCR=1 for OCR fallback")
 	}
 	return text, warn, nil
+}
+
+// plainTextFromPDF extracts native PDF text. Recovers library panics (common on
+// malformed / encrypted / odd PDFs) so indexing can fail soft.
+func plainTextFromPDF(data []byte) (text string, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			text = ""
+			err = fmt.Errorf("pdf library panic: %v", rec)
+		}
+	}()
+
+	reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return "", fmt.Errorf("pdf open: %w", err)
+	}
+
+	plain, err := reader.GetPlainText()
+	if err != nil {
+		return "", fmt.Errorf("pdf text: %w", err)
+	}
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(plain); err != nil {
+		return "", fmt.Errorf("pdf read: %w", err)
+	}
+	return buf.String(), nil
 }
