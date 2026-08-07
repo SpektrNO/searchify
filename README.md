@@ -143,6 +143,10 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_WATCH_PATHS` | no | Comma-separated paths to auto-index (under roots); empty disables watch |
 | `SEARCHIFY_WATCH_DEBOUNCE` | no | Coalesce fs events (Go duration, default `1s`) |
 | `SEARCHIFY_WATCH_RESCAN` | no | Periodic re-index of watch paths (e.g. `5m`); `0`/empty disables |
+| `SEARCHIFY_OCR` | no | `1`/`true`/`on` enables OCR for images and scanned-PDF fallback (needs `tesseract` on `PATH`; PDF OCR also needs `pdftoppm`) |
+| `SEARCHIFY_OCR_LANG` | no | Tesseract language (default `eng`) |
+| `SEARCHIFY_MAX_FILE_BYTES` | no | Skip files larger than this during index (default `33554432` / 32 MiB) |
+| `SEARCHIFY_EXTRACT_TIMEOUT` | no | Per-file extract deadline (Go duration, default `30s`) |
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
 | `SEARCHIFY_HTTP_TOKEN` | for HTTP | Bearer token (required to start `serve http`) |
 | `SEARCHIFY_HTTP_ADDR` | no | Default listen address (`:8080`) |
@@ -162,6 +166,12 @@ Index or refresh files under one or more paths (must be under `SEARCHIFY_ROOTS`)
 ```
 
 Re-indexing does **not** remove deleted files from the index. Use `remove_paths` for known deletes, or `index_prune` to reconcile orphans vs disk.
+
+### Indexable file types
+
+Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`.
+
+Extracted formats: `.pdf` `.docx` `.xlsx` `.csv` `.html`/`.htm`, plus stretch `.pptx` `.odt`/`.ods`/`.odp` `.rtf` `.eml`. Images (`.png` `.jpg` `.jpeg` `.webp` `.tif` `.tiff` `.gif`) index only when `SEARCHIFY_OCR=1`. Other extensions are ignored. `index_status` reports `ocr_enabled` and `index_extensions`.
 
 ### `remove_paths`
 
