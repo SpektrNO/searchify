@@ -24,30 +24,39 @@ const (
 	EnvOCRLang         = "SEARCHIFY_OCR_LANG"
 	EnvMaxFileBytes    = "SEARCHIFY_MAX_FILE_BYTES"
 	EnvExtractTimeout  = "SEARCHIFY_EXTRACT_TIMEOUT"
+	EnvEmbedBatch      = "SEARCHIFY_EMBED_BATCH"
+	EnvMaxChunksFile   = "SEARCHIFY_MAX_CHUNKS_PER_FILE"
+	EnvMaxExtractBytes = "SEARCHIFY_MAX_EXTRACT_BYTES"
 
-	defaultEmbedModel     = "minilm-l6-v2"
-	defaultHTTPAddr       = ":8080"
-	defaultWatchDebounce  = time.Second
-	defaultMaxFileBytes   = int64(32 * 1024 * 1024)
-	defaultExtractTimeout = 30 * time.Second
-	defaultOCRLang        = "eng"
+	defaultEmbedModel      = "minilm-l6-v2"
+	defaultHTTPAddr        = ":8080"
+	defaultWatchDebounce   = time.Second
+	defaultMaxFileBytes    = int64(8 * 1024 * 1024) // safer default; raise via env for large PDFs
+	defaultExtractTimeout  = 30 * time.Second
+	defaultOCRLang         = "eng"
+	defaultEmbedBatch      = 16
+	defaultMaxChunksFile   = 256
+	defaultMaxExtractBytes = int64(2 * 1024 * 1024)
 )
 
 type Config struct {
-	Roots          []string
-	IndexDir       string
-	LangSearch     string
-	HTTPToken      string
-	HTTPAddr       string
-	EmbedModel     string
-	PathBase       string        // optional; relative paths tried here first
-	WatchPaths     []string      // optional; empty disables auto-index watch
-	WatchDebounce  time.Duration // coalesce fs events (default 1s)
-	WatchRescan    time.Duration // optional periodic IndexPaths; 0 disables
-	OCREnabled     bool
-	OCRLang        string
-	MaxFileBytes   int64
-	ExtractTimeout time.Duration
+	Roots            []string
+	IndexDir         string
+	LangSearch       string
+	HTTPToken        string
+	HTTPAddr         string
+	EmbedModel       string
+	PathBase         string        // optional; relative paths tried here first
+	WatchPaths       []string      // optional; empty disables auto-index watch
+	WatchDebounce    time.Duration // coalesce fs events (default 1s)
+	WatchRescan      time.Duration // optional periodic IndexPaths; 0 disables
+	OCREnabled       bool
+	OCRLang          string
+	MaxFileBytes     int64
+	ExtractTimeout   time.Duration
+	EmbedBatch       int   // ONNX EncodeBatch size (default 16)
+	MaxChunksPerFile int   // truncate indexing after N chunks (default 256)
+	MaxExtractBytes  int64 // truncate extracted text before chunking (default 2MiB)
 }
 
 func Load() (*Config, error) {
@@ -88,22 +97,37 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	embedBatch, err := parseIntEnv(EnvEmbedBatch, os.Getenv(EnvEmbedBatch), defaultEmbedBatch)
+	if err != nil {
+		return nil, err
+	}
+	maxChunks, err := parseIntEnv(EnvMaxChunksFile, os.Getenv(EnvMaxChunksFile), defaultMaxChunksFile)
+	if err != nil {
+		return nil, err
+	}
+	maxExtract, err := parseInt64Env(EnvMaxExtractBytes, os.Getenv(EnvMaxExtractBytes), defaultMaxExtractBytes)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Config{
-		Roots:          roots,
-		IndexDir:       indexDir,
-		LangSearch:     os.Getenv(EnvLangSearch),
-		HTTPToken:      os.Getenv(EnvHTTPToken),
-		HTTPAddr:       defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
-		EmbedModel:     defaultString(os.Getenv(EnvEmbedModel), defaultEmbedModel),
-		PathBase:       pathBase,
-		WatchPaths:     watchPaths,
-		WatchDebounce:  debounce,
-		WatchRescan:    rescan,
-		OCREnabled:     parseBoolEnv(os.Getenv(EnvOCR)),
-		OCRLang:        defaultString(os.Getenv(EnvOCRLang), defaultOCRLang),
-		MaxFileBytes:   maxBytes,
-		ExtractTimeout: extractTimeout,
+		Roots:            roots,
+		IndexDir:         indexDir,
+		LangSearch:       os.Getenv(EnvLangSearch),
+		HTTPToken:        os.Getenv(EnvHTTPToken),
+		HTTPAddr:         defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
+		EmbedModel:       defaultString(os.Getenv(EnvEmbedModel), defaultEmbedModel),
+		PathBase:         pathBase,
+		WatchPaths:       watchPaths,
+		WatchDebounce:    debounce,
+		WatchRescan:      rescan,
+		OCREnabled:       parseBoolEnv(os.Getenv(EnvOCR)),
+		OCRLang:          defaultString(os.Getenv(EnvOCRLang), defaultOCRLang),
+		MaxFileBytes:     maxBytes,
+		ExtractTimeout:   extractTimeout,
+		EmbedBatch:       embedBatch,
+		MaxChunksPerFile: maxChunks,
+		MaxExtractBytes:  maxExtract,
 	}, nil
 }
 
@@ -236,6 +260,17 @@ func parseInt64Env(name, raw string, fallback int64) (int64, error) {
 		return 0, fmt.Errorf("%s must be > 0", name)
 	}
 	return n, nil
+}
+
+func parseIntEnv(name, raw string, fallback int) (int, error) {
+	n, err := parseInt64Env(name, raw, int64(fallback))
+	if err != nil {
+		return 0, err
+	}
+	if n > int64(^uint(0)>>1) {
+		return 0, fmt.Errorf("%s too large", name)
+	}
+	return int(n), nil
 }
 
 func defaultIndexDir(raw string) (string, error) {

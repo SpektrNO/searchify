@@ -230,13 +230,22 @@ func (s *Service) deleteFileChunks(path string) error {
 	return err
 }
 
-func (s *Service) indexFile(path string, info os.FileInfo, content []byte) error {
+func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (string, error) {
 	chunks, err := chunkFile(content)
 	if err != nil {
-		return err
+		return "", err
+	}
+	maxChunks := s.cfg.MaxChunksPerFile
+	if maxChunks <= 0 {
+		maxChunks = 256
+	}
+	var warn string
+	if len(chunks) > maxChunks {
+		warn = fmt.Sprintf("truncated to %d chunks (SEARCHIFY_MAX_CHUNKS_PER_FILE)", maxChunks)
+		chunks = chunks[:maxChunks]
 	}
 	if err := s.deleteFileChunks(path); err != nil {
-		return err
+		return warn, err
 	}
 
 	chunkIDs := make([]string, 0, len(chunks))
@@ -251,16 +260,16 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) error
 			id, path, c.Index, c.LineStart, c.LineEnd, c.Text,
 		)
 		if err != nil {
-			return err
+			return warn, err
 		}
 	}
 
 	if len(texts) > 0 {
 		if err := s.embedAndStore(chunkIDs, texts); err != nil {
-			return err
+			return warn, err
 		}
 		if err := s.setMeta("embed_model", s.cfg.EmbedModel); err != nil {
-			return err
+			return warn, err
 		}
 	}
 
@@ -276,7 +285,7 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) error
 		   indexed_at = excluded.indexed_at`,
 		path, info.ModTime().UnixNano(), info.Size(), hash, now,
 	)
-	return err
+	return warn, err
 }
 
 func (s *Service) embedAndStore(chunkIDs, texts []string) error {
@@ -284,16 +293,29 @@ func (s *Service) embedAndStore(chunkIDs, texts []string) error {
 	if err != nil {
 		return fmt.Errorf("embedder: %w", err)
 	}
-	vectors, err := embedder.EncodeBatch(texts)
-	if err != nil {
-		return fmt.Errorf("embed chunks: %w", err)
+	batch := s.cfg.EmbedBatch
+	if batch <= 0 {
+		batch = 16
 	}
-	if len(vectors) != len(chunkIDs) {
-		return fmt.Errorf("embedder returned %d vectors for %d chunks", len(vectors), len(chunkIDs))
-	}
-	for i, id := range chunkIDs {
-		if err := s.upsertChunkVector(id, vectors[i]); err != nil {
-			return err
+	for start := 0; start < len(texts); start += batch {
+		end := start + batch
+		if end > len(texts) {
+			end = len(texts)
+		}
+		ids := chunkIDs[start:end]
+		batchTexts := texts[start:end]
+		vectors, err := embedder.EncodeBatch(batchTexts)
+		if err != nil {
+			return fmt.Errorf("embed chunks: %w", err)
+		}
+		if len(vectors) != len(ids) {
+			return fmt.Errorf("embedder returned %d vectors for %d chunks", len(vectors), len(ids))
+		}
+		for i, id := range ids {
+			if err := s.upsertChunkVector(id, vectors[i]); err != nil {
+				return err
+			}
+			vectors[i] = nil
 		}
 	}
 	return nil

@@ -134,6 +134,7 @@ export SEARCHIFY_ROOTS="/home/you/dev/spektr/searchify"
 export SEARCHIFY_INDEX_DIR="/tmp/searchify-index"   # optional
 
 ./bin/searchify index docs/
+# stderr progress: index: N indexable file(s) / [i/N] indexing path …
 # indexed=N updated=N skipped=N errors=N
 ```
 
@@ -155,7 +156,10 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_WATCH_RESCAN` | no | Periodic re-index of watch paths (e.g. `5m`); `0`/empty disables |
 | `SEARCHIFY_OCR` | no | `1`/`true`/`on` enables OCR for images and scanned-PDF fallback (needs `tesseract` on `PATH`; PDF OCR also needs `pdftoppm`) |
 | `SEARCHIFY_OCR_LANG` | no | Tesseract language (default `eng`) |
-| `SEARCHIFY_MAX_FILE_BYTES` | no | Skip files larger than this during index (default `33554432` / 32 MiB) |
+| `SEARCHIFY_MAX_FILE_BYTES` | no | Skip source files larger than this during index (default `8388608` / 8 MiB) |
+| `SEARCHIFY_MAX_EXTRACT_BYTES` | no | Truncate extracted text before chunking (default `2097152` / 2 MiB) |
+| `SEARCHIFY_MAX_CHUNKS_PER_FILE` | no | Max chunks embedded per file (default `256`) |
+| `SEARCHIFY_EMBED_BATCH` | no | ONNX `EncodeBatch` size (default `16`; lower if RAM-constrained) |
 | `SEARCHIFY_EXTRACT_TIMEOUT` | no | Per-file extract deadline (Go duration, default `30s`) |
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
 | `SEARCHIFY_HTTP_TOKEN` | for HTTP | Bearer token (required to start `serve http`) |
@@ -182,6 +186,8 @@ Re-indexing does **not** remove deleted files from the index. Use `remove_paths`
 Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`.
 
 Extracted formats: `.pdf` `.docx` `.xlsx` `.csv` `.html`/`.htm`, plus stretch `.pptx` `.odt`/`.ods`/`.odp` `.rtf` `.eml`. Images (`.png` `.jpg` `.jpeg` `.webp` `.tif` `.tiff` `.gif`) index only when `SEARCHIFY_OCR=1`. Other extensions are ignored. `index_status` reports `ocr_enabled` and `index_extensions`.
+
+Indexing caps memory via `SEARCHIFY_MAX_FILE_BYTES` (default 8 MiB), `SEARCHIFY_MAX_EXTRACT_BYTES` (2 MiB), `SEARCHIFY_MAX_CHUNKS_PER_FILE` (256), and batched embeds (`SEARCHIFY_EMBED_BATCH`, default 16).
 
 ### `remove_paths`
 
