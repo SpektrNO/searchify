@@ -67,7 +67,7 @@ func runMCP(args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer server.Local().Close()
+	defer server.Close()
 
 	if err := server.RunStdio(context.Background()); err != nil {
 		log.Fatal(err)
@@ -106,7 +106,7 @@ func runServe(args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer server.Local().Close()
+	defer server.Close()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -260,6 +260,9 @@ environment:
   SEARCHIFY_ROOTS              Required comma-separated allowed search roots
   SEARCHIFY_INDEX_DIR          Index storage path (default: ~/.searchify/index)
   SEARCHIFY_PATH_BASE          Preferred base for relative paths (under a root)
+  SEARCHIFY_WATCH_PATHS        Optional auto-index watch paths (under roots)
+  SEARCHIFY_WATCH_DEBOUNCE     Watch debounce duration (default 1s)
+  SEARCHIFY_WATCH_RESCAN       Optional periodic rescan (e.g. 5m; empty=off)
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank
   SEARCHIFY_HTTP_TOKEN         Required Bearer token for HTTP transport
   SEARCHIFY_HTTP_ADDR          Default listen address for serve http (:8080)

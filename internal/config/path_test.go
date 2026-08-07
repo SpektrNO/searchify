@@ -146,3 +146,12 @@ func TestAllowlistedCandidatesMissingOK(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestParseWatchPathsMustBeUnderRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	_, err := parseWatchPaths(outside, []string{root})
+	if err == nil {
+		t.Fatal("expected error for outside watch path")
+	}
+}

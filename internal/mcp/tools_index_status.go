@@ -22,6 +22,8 @@ type indexStatusPayload struct {
 	EmbedModel           string   `json:"embed_model,omitempty"`
 	VectorReady          bool     `json:"vector_ready"`
 	LangSearchConfigured bool     `json:"langsearch_configured"`
+	WatchEnabled         bool     `json:"watch_enabled"`
+	WatchPaths           []string `json:"watch_paths,omitempty"`
 	IndexedAt            *string  `json:"indexed_at"`
 	Ready                bool     `json:"ready"`
 	Message              string   `json:"message,omitempty"`
@@ -51,6 +53,8 @@ func (s *Server) indexStatus(ctx context.Context, req *mcp.CallToolRequest, _ in
 		EmbedModel:           status.EmbedModel,
 		VectorReady:          status.VectorReady,
 		LangSearchConfigured: langConfigured,
+		WatchEnabled:         len(s.cfg.WatchPaths) > 0,
+		WatchPaths:           append([]string(nil), s.cfg.WatchPaths...),
 		IndexedAt:            status.IndexedAt,
 		Ready:                status.Ready,
 		Message:              msg,

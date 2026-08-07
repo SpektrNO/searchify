@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spektr/searchify/internal/config"
@@ -12,14 +13,15 @@ import (
 
 const (
 	serverName    = "searchify"
-	serverVersion = "0.6.1"
+	serverVersion = "0.6.2"
 )
 
 type Server struct {
-	cfg   *config.Config
-	local *local.Service
-	web   *web.Client
-	mcp   *mcp.Server
+	cfg         *config.Config
+	local       *local.Service
+	web         *web.Client
+	mcp         *mcp.Server
+	watchCancel context.CancelFunc
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
@@ -39,7 +41,26 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	}, nil)
 
 	s.registerTools()
+	s.startWatch()
 	return s, nil
+}
+
+func (s *Server) startWatch() {
+	if len(s.cfg.WatchPaths) == 0 {
+		return
+	}
+	w, err := local.NewIndexWatcher(s.cfg, s.local)
+	if err != nil {
+		slog.Warn("index watch disabled", "err", err)
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.watchCancel = cancel
+	go func() {
+		if err := w.Run(ctx); err != nil && err != context.Canceled {
+			slog.Warn("index watch exited", "err", err)
+		}
+	}()
 }
 
 func (s *Server) RunStdio(ctx context.Context) error {
@@ -48,6 +69,17 @@ func (s *Server) RunStdio(ctx context.Context) error {
 
 func (s *Server) Local() *local.Service {
 	return s.local
+}
+
+func (s *Server) Close() error {
+	if s.watchCancel != nil {
+		s.watchCancel()
+		s.watchCancel = nil
+	}
+	if s.local == nil {
+		return nil
+	}
+	return s.local.Close()
 }
 
 func (s *Server) registerTools() {

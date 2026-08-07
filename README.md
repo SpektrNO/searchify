@@ -140,6 +140,9 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_ROOTS` | yes | Comma-separated allowed directory roots |
 | `SEARCHIFY_INDEX_DIR` | no | Index path (default: `~/.searchify/index`) |
 | `SEARCHIFY_PATH_BASE` | no | Preferred base for relative tool/CLI paths (must be under a root) |
+| `SEARCHIFY_WATCH_PATHS` | no | Comma-separated paths to auto-index (under roots); empty disables watch |
+| `SEARCHIFY_WATCH_DEBOUNCE` | no | Coalesce fs events (Go duration, default `1s`) |
+| `SEARCHIFY_WATCH_RESCAN` | no | Periodic re-index of watch paths (e.g. `5m`); `0`/empty disables |
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
 | `SEARCHIFY_HTTP_TOKEN` | for HTTP | Bearer token (required to start `serve http`) |
 | `SEARCHIFY_HTTP_ADDR` | no | Default listen address (`:8080`) |
@@ -182,6 +185,10 @@ Reconcile the index with disk: drop rows for files that no longer exist, and for
 ```
 
 CLI: `searchify prune [--dry-run] [paths...]`
+
+### Auto-index watch
+
+Set `SEARCHIFY_WATCH_PATHS` (comma-separated, under roots) to enable fsnotify-based indexing while `mcp stdio` or `serve http` runs. Writes debounce (`SEARCHIFY_WATCH_DEBOUNCE`, default `1s`); deletes call `remove_paths`. Optional `SEARCHIFY_WATCH_RESCAN` (e.g. `5m`) periodically re-indexes watch roots. `index_status` reports `watch_enabled` / `watch_paths`.
 
 ### `search_local`
 
