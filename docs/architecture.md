@@ -7,7 +7,7 @@ Hybrid text-search MCP server in Go.
 | Layer | Package | Role |
 |-------|---------|------|
 | CLI | `cmd/searchify` | `mcp stdio`, `serve http`, `index` subcommands |
-| MCP | `internal/mcp` | Tool registration and transports |
+| MCP | `internal/mcp` | Tool registration; stdio + Streamable HTTP |
 | Config | `internal/config` | Env vars, path allowlist |
 | File search | `internal/file` | Single-file keyword scan |
 | Local index | `internal/local` | SQLite FTS5 + chunk vectors (phase 2–3) |
@@ -49,6 +49,14 @@ Hybrid text-search MCP server in Go.
 
 - [LangSearch Web Search](https://docs.langsearch.com/api/web-search-api)
 - [LangSearch Semantic Rerank](https://docs.langsearch.com/api/semantic-rerank-api)
+
+## HTTP transport (phase 5)
+
+- CLI: `searchify serve http [--addr] [--path]`
+- go-sdk `NewStreamableHTTPHandler` with **stateless** sessions
+- Auth: `Authorization: Bearer` must match `SEARCHIFY_HTTP_TOKEN` (required to start)
+- Probes: `GET /healthz` (no auth)
+- Timeouts: `ReadHeaderTimeout` 5s; ~60s request budget
 
 ## Environment
 

@@ -12,9 +12,11 @@ const (
 	EnvIndexDir   = "SEARCHIFY_INDEX_DIR"
 	EnvLangSearch = "LANGSEARCH_API_KEY"
 	EnvHTTPToken  = "SEARCHIFY_HTTP_TOKEN"
+	EnvHTTPAddr   = "SEARCHIFY_HTTP_ADDR"
 	EnvEmbedModel = "SEARCHIFY_EMBED_MODEL"
 
 	defaultEmbedModel = "minilm-l6-v2"
+	defaultHTTPAddr   = ":8080"
 )
 
 type Config struct {
@@ -22,6 +24,7 @@ type Config struct {
 	IndexDir   string
 	LangSearch string
 	HTTPToken  string
+	HTTPAddr   string
 	EmbedModel string
 }
 
@@ -41,6 +44,7 @@ func Load() (*Config, error) {
 		IndexDir:   indexDir,
 		LangSearch: os.Getenv(EnvLangSearch),
 		HTTPToken:  os.Getenv(EnvHTTPToken),
+		HTTPAddr:   defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
 		EmbedModel: defaultString(os.Getenv(EnvEmbedModel), defaultEmbedModel),
 	}, nil
 }

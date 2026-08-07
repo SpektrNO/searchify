@@ -5,7 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 
 	"github.com/spektr/searchify/internal/config"
 	"github.com/spektr/searchify/internal/local"
@@ -14,6 +18,7 @@ import (
 
 func main() {
 	log.SetFlags(0)
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -65,8 +70,48 @@ func runMCP(args []string) {
 }
 
 func runServe(args []string) {
-	fmt.Fprintln(os.Stderr, "searchify serve http: not implemented yet (phase 5)")
-	os.Exit(2)
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	addr := fs.String("addr", "", "listen address (default SEARCHIFY_HTTP_ADDR or :8080)")
+	path := fs.String("path", "/mcp", "MCP Streamable HTTP path")
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: searchify serve http [--addr HOST:PORT] [--path /mcp]")
+	}
+	_ = fs.Parse(args)
+
+	if fs.NArg() != 1 || fs.Arg(0) != "http" {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if strings.TrimSpace(cfg.HTTPToken) == "" {
+		slog.Error("SEARCHIFY_HTTP_TOKEN is required for HTTP mode")
+		os.Exit(1)
+	}
+
+	listenAddr := *addr
+	if listenAddr == "" {
+		listenAddr = cfg.HTTPAddr
+	}
+
+	server, err := searchmcp.NewServer(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer server.Local().Close()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := server.RunHTTP(ctx, searchmcp.HTTPOptions{
+		Addr: listenAddr,
+		Path: *path,
+	}); err != nil && err != context.Canceled {
+		log.Fatal(err)
+	}
 }
 
 func runIndex(args []string) {
@@ -116,13 +161,15 @@ usage:
   searchify mcp stdio          Run MCP server over stdin/stdout
   searchify index [--force] <paths...>
                                Build or refresh local keyword index
-  searchify serve http         Run MCP server over HTTP (coming soon)
+  searchify serve http [--addr HOST:PORT] [--path /mcp]
+                               Run MCP server over Streamable HTTP
 
 environment:
   SEARCHIFY_ROOTS              Required comma-separated allowed search roots
   SEARCHIFY_INDEX_DIR          Index storage path (default: ~/.searchify/index)
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank
-  SEARCHIFY_HTTP_TOKEN         Bearer token for HTTP transport
+  SEARCHIFY_HTTP_TOKEN         Required Bearer token for HTTP transport
+  SEARCHIFY_HTTP_ADDR          Default listen address for serve http (:8080)
   SEARCHIFY_EMBED_MODEL        Embedding model name (default: minilm-l6-v2)
 `)
 }

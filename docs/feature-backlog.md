@@ -47,4 +47,4 @@ Architecture: [architecture.md](./architecture.md)
 
 | ID | Feature | Status | Spec |
 |----|---------|--------|------|
-| `phase5-http-hardening` | Streamable HTTP, auth, benchmarks | ⬜ | [architecture.md](./architecture.md) |
+| `phase5-http-hardening` | Streamable HTTP, auth, benchmarks | ✅ | [handoffs/archive/2026-08-07-phase5-http-hardening.md](./handoffs/archive/2026-08-07-phase5-http-hardening.md) |

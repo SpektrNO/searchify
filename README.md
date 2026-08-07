@@ -22,16 +22,13 @@ When ready for GitHub issues, copy `create-feature-issues.sh` and `load-feature-
 
 ## Status
 
-Phase 4 (web search):
+Phase 5 (HTTP + hardening):
 
-- `search_web` — LangSearch internet search with summaries, TTL cache, and 429 backoff
-- `search_local` — keyword, vector, or hybrid search with optional LangSearch rerank
-- `index_paths` / `index_status` — local index + `langsearch_configured`
-- CLI: `searchify index [--force] <paths...>`
+- `searchify serve http` — Streamable HTTP MCP with Bearer auth, timeouts, `/healthz`
+- `search_web` / `search_local` / `search_file` / `index_*` — unchanged over stdio and HTTP
+- Benchmarks: `make bench` (keyword + hybrid, report-only)
 
-Also available: `search_file` (single-file keyword search).
-
-Coming next: HTTP transport + hardening (phase 5).
+Stdio remains the recommended Cursor transport for local use.
 
 ## Requirements
 
@@ -43,6 +40,16 @@ Coming next: HTTP transport + hardening (phase 5).
 ```bash
 go mod tidy
 go build -o bin/searchify ./cmd/searchify
+# or: make build
+```
+
+## Benchmarks
+
+Report-only latency for local keyword/hybrid (stub embeddings, ~1.2k docs):
+
+```bash
+make bench
+# or: go test -bench=BenchmarkSearch -benchmem ./internal/local/
 ```
 
 ## Run (stdio MCP)
@@ -51,6 +58,34 @@ go build -o bin/searchify ./cmd/searchify
 export SEARCHIFY_ROOTS="/home/you/dev"
 ./bin/searchify mcp stdio
 ```
+
+## Run (HTTP MCP)
+
+Requires a non-empty `SEARCHIFY_HTTP_TOKEN`. Prefer binding to localhost; put TLS termination on a reverse proxy if exposing beyond the machine.
+
+```bash
+export SEARCHIFY_ROOTS="/home/you/dev"
+export SEARCHIFY_HTTP_TOKEN="dev-secret"
+./bin/searchify serve http --addr 127.0.0.1:8080 --path /mcp
+# GET http://127.0.0.1:8080/healthz → ok
+```
+
+Remote MCP config (illustrative; Cursor versions differ — prefer stdio for local):
+
+```json
+{
+  "mcpServers": {
+    "searchify-http": {
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer dev-secret"
+      }
+    }
+  }
+}
+```
+
+HTTP mode uses go-sdk **stateless** Streamable HTTP for simpler proxying.
 
 ## Index and search (CLI)
 
@@ -75,7 +110,8 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_ROOTS` | yes | Comma-separated allowed directory roots |
 | `SEARCHIFY_INDEX_DIR` | no | Index path (default: `~/.searchify/index`) |
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
-| `SEARCHIFY_HTTP_TOKEN` | no | Bearer token for HTTP mode |
+| `SEARCHIFY_HTTP_TOKEN` | for HTTP | Bearer token (required to start `serve http`) |
+| `SEARCHIFY_HTTP_ADDR` | no | Default listen address (`:8080`) |
 | `SEARCHIFY_EMBED_MODEL` | no | Embedding model (default: `minilm-l6-v2`) |
 
 ## MCP tools
