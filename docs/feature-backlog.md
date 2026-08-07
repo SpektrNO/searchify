@@ -62,6 +62,6 @@ Optional follow-ups — not required for v1. Spec with `/spec-only` when priorit
 | `opt-remove-path` | Remove deleted files from the index (MCP tool and/or REST); prune FTS + vectors | ⬜ | [architecture.md](./architecture.md) |
 | `opt-index-prune` | Reconcile index vs disk: drop orphan DB rows for files missing under a root | ⬜ | [architecture.md](./architecture.md) |
 | `opt-auto-index-watch` | Optional fsnotify (or periodic rescan) on configured watch paths to index new/changed files | ⬜ | [architecture.md](./architecture.md) |
-| `opt-relative-path-resolve` | Resolve relative `search_file` / index paths against roots or workspace, not MCP process cwd | ⬜ | [architecture.md](./architecture.md) |
+| `opt-relative-path-resolve` | Resolve relative `search_file` / index paths against roots or workspace, not MCP process cwd | ✅ | [handoffs/archive/2026-08-07-opt-relative-path-resolve.md](./handoffs/archive/2026-08-07-opt-relative-path-resolve.md) |
 | `opt-richer-file-types` | Expand indexable types (e.g. PDF/Office text extractors) beyond current extension allowlist | ⬜ | [architecture.md](./architecture.md) |
 | `opt-timing-metrics` | Return process timing (e.g. `duration_ms`) on search/index responses; log p50/p95-friendly fields for corpus health | ✅ | [handoffs/archive/2026-08-07-opt-timing-metrics.md](./handoffs/archive/2026-08-07-opt-timing-metrics.md) |

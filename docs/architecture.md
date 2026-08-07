@@ -61,7 +61,7 @@ Hybrid text-search MCP server in Go.
 - App integration: MCP Streamable HTTP today; optional REST `POST /v1/search` + `POST /v1/index` (backlog `opt-rest-v1-search`, `opt-rest-v1-index`)
 - Deletions: per-path remove (`opt-remove-path`) and optional orphan prune (`opt-index-prune`)
 - Auto-index: optional watch/rescan (`opt-auto-index-watch`)
-- Path UX: relative path resolution (`opt-relative-path-resolve`)
+- Path UX: relative paths resolve via `SEARCHIFY_PATH_BASE` then roots (no process CWD); absolute paths must stay under roots
 - File types: richer extractors beyond the extension allowlist (`opt-richer-file-types`)
 - Observability: search/index tool responses include `duration_ms`; `search_local` adds per-leg `timing` (backlog was `opt-timing-metrics`)
 

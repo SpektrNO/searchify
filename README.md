@@ -109,6 +109,7 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 |----------|----------|-------------|
 | `SEARCHIFY_ROOTS` | yes | Comma-separated allowed directory roots |
 | `SEARCHIFY_INDEX_DIR` | no | Index path (default: `~/.searchify/index`) |
+| `SEARCHIFY_PATH_BASE` | no | Preferred base for relative tool/CLI paths (must be under a root) |
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
 | `SEARCHIFY_HTTP_TOKEN` | for HTTP | Bearer token (required to start `serve http`) |
 | `SEARCHIFY_HTTP_ADDR` | no | Default listen address (`:8080`) |
@@ -165,7 +166,7 @@ Internet search via LangSearch. Requires `LANGSEARCH_API_KEY`. Results are cache
 
 ### `search_file`
 
-Search within one file under allowed roots.
+Search within one file under allowed roots. Paths may be absolute (must stay under a root) or relative: Searchify resolves them against `SEARCHIFY_PATH_BASE` (if set) then each root — no process CWD. Relative paths must exist and be unique; ambiguous matches return an error.
 
 ```json
 {
@@ -174,6 +175,8 @@ Search within one file under allowed roots.
   "limit": 10
 }
 ```
+
+Set `SEARCHIFY_PATH_BASE` to your project root in MCP env when using repo-relative paths (Cursor often passes those).
 
 ### `index_status`
 

@@ -10,7 +10,7 @@ import (
 )
 
 type searchFileInput struct {
-	Path          string `json:"path" jsonschema:"absolute or relative path to the file"`
+	Path          string `json:"path" jsonschema:"file path; absolute under SEARCHIFY_ROOTS, or relative resolved under roots / SEARCHIFY_PATH_BASE"`
 	Query         string `json:"query" jsonschema:"text to search for"`
 	Limit         int    `json:"limit,omitempty" jsonschema:"maximum number of matches to return (default 10)"`
 	CaseSensitive bool   `json:"case_sensitive,omitempty" jsonschema:"match case exactly when true"`

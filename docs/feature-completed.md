@@ -12,6 +12,7 @@ Shipped features registry. Complements [feature-backlog.md](./feature-backlog.md
 
 | Date | ID | Feature | GitHub | Notes |
 |------|-----|---------|--------|-------|
+| 2026-08-07 | `opt-relative-path-resolve` | Resolve relative `search_file` / index paths against roots or workspace, not MCP process cwd | — | relative paths via PATH_BASE + roots; MCP 0.5.2 |
 | 2026-08-07 | `opt-timing-metrics` | Return process timing on search/index | — | duration_ms + search_local timing |
 | 2026-08-07 | `phase5-http-hardening` | Streamable HTTP, auth, benchmarks | — | serve http + healthz + benches |
 | 2026-08-07 | `phase4-web-search` | LangSearch web API + search_web tool | — | search_web + web.Client cache/429 |
@@ -51,3 +52,9 @@ Shipped features registry. Complements [feature-backlog.md](./feature-backlog.md
 | ID | Feature | Completed | Spec | Notes |
 |----|---------|-----------|------|-------|
 | `phase5-http-hardening` | Streamable HTTP, auth, benchmarks | 2026-08-07 | [handoffs/archive/2026-08-07-phase5-http-hardening.md](./handoffs/archive/2026-08-07-phase5-http-hardening.md) | serve http + healthz + benches |
+
+## Other
+
+| ID | Feature | Completed | Spec | Notes |
+|----|---------|-----------|------|-------|
+| `opt-relative-path-resolve` | Resolve relative `search_file` / index paths against roots or workspace, not MCP process cwd | 2026-08-07 | [handoffs/archive/2026-08-07-opt-relative-path-resolve.md](./handoffs/archive/2026-08-07-opt-relative-path-resolve.md) | relative paths via PATH_BASE + roots; MCP 0.5.2 |

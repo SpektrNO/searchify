@@ -171,6 +171,7 @@ usage:
 environment:
   SEARCHIFY_ROOTS              Required comma-separated allowed search roots
   SEARCHIFY_INDEX_DIR          Index storage path (default: ~/.searchify/index)
+  SEARCHIFY_PATH_BASE          Preferred base for relative paths (under a root)
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank
   SEARCHIFY_HTTP_TOKEN         Required Bearer token for HTTP transport
   SEARCHIFY_HTTP_ADDR          Default listen address for serve http (:8080)

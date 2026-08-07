@@ -6,6 +6,7 @@
       "env": {
         "SEARCHIFY_ROOTS": "/home/fsat/dev",
         "SEARCHIFY_INDEX_DIR": "",
+        "SEARCHIFY_PATH_BASE": "/home/fsat/dev/spektr/searchify",
         "SEARCHIFY_EMBED_MODEL": "minilm-l6-v2",
         "LANGSEARCH_API_KEY": ""
       }

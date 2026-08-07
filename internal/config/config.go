@@ -14,6 +14,7 @@ const (
 	EnvHTTPToken  = "SEARCHIFY_HTTP_TOKEN"
 	EnvHTTPAddr   = "SEARCHIFY_HTTP_ADDR"
 	EnvEmbedModel = "SEARCHIFY_EMBED_MODEL"
+	EnvPathBase   = "SEARCHIFY_PATH_BASE"
 
 	defaultEmbedModel = "minilm-l6-v2"
 	defaultHTTPAddr   = ":8080"
@@ -26,6 +27,7 @@ type Config struct {
 	HTTPToken  string
 	HTTPAddr   string
 	EmbedModel string
+	PathBase   string // optional; relative paths tried here first
 }
 
 func Load() (*Config, error) {
@@ -39,6 +41,11 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	pathBase, err := parsePathBase(os.Getenv(EnvPathBase), roots)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		Roots:      roots,
 		IndexDir:   indexDir,
@@ -46,6 +53,7 @@ func Load() (*Config, error) {
 		HTTPToken:  os.Getenv(EnvHTTPToken),
 		HTTPAddr:   defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
 		EmbedModel: defaultString(os.Getenv(EnvEmbedModel), defaultEmbedModel),
+		PathBase:   pathBase,
 	}, nil
 }
 
@@ -84,6 +92,26 @@ func parseRoots(raw string) ([]string, error) {
 	return roots, nil
 }
 
+func parsePathBase(raw string, roots []string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		return "", fmt.Errorf("resolve %s: %w", EnvPathBase, err)
+	}
+	abs = filepath.Clean(abs)
+
+	for _, root := range roots {
+		if pathWithinRoot(abs, root) {
+			return abs, nil
+		}
+	}
+	return "", fmt.Errorf("%s %q must be under a SEARCHIFY_ROOTS entry", EnvPathBase, abs)
+}
+
 func defaultIndexDir(raw string) (string, error) {
 	if strings.TrimSpace(raw) != "" {
 		return filepath.Abs(filepath.Clean(raw))
@@ -104,29 +132,86 @@ func defaultString(value, fallback string) string {
 	return value
 }
 
+// AllowedPath resolves path against allowlisted roots.
+// Absolute paths must lie under a root.
+// Relative paths are joined with SEARCHIFY_PATH_BASE (if set) then each root;
+// they must exist on disk and not escape the root via "..".
 func (c *Config) AllowedPath(path string) (string, error) {
-	if strings.TrimSpace(path) == "" {
+	path = strings.TrimSpace(path)
+	if path == "" {
 		return "", fmt.Errorf("path is required")
 	}
-
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return "", fmt.Errorf("resolve path: %w", err)
+	if path == "." {
+		return "", fmt.Errorf("path %q is not allowed; use an absolute path or a relative path under SEARCHIFY_ROOTS", path)
 	}
 
-	abs = filepath.Clean(abs)
+	if filepath.IsAbs(path) {
+		return c.allowAbsolute(filepath.Clean(path))
+	}
 
+	return c.resolveRelative(filepath.Clean(path))
+}
+
+func (c *Config) allowAbsolute(abs string) (string, error) {
 	for _, root := range c.Roots {
 		if pathWithinRoot(abs, root) {
 			return abs, nil
 		}
 	}
-
 	return "", fmt.Errorf("path %q is outside allowed roots", abs)
+}
+
+func (c *Config) resolveRelative(rel string) (string, error) {
+	var matches []string
+	seen := make(map[string]struct{})
+
+	try := func(base string) {
+		candidate := filepath.Clean(filepath.Join(base, rel))
+		if !pathWithinRoot(candidate, base) {
+			// Joining with ".." escaped this base; skip.
+			return
+		}
+		// Candidate must also lie under some configured root (base may be PathBase).
+		underRoot := false
+		for _, root := range c.Roots {
+			if pathWithinRoot(candidate, root) {
+				underRoot = true
+				break
+			}
+		}
+		if !underRoot {
+			return
+		}
+		if _, err := os.Stat(candidate); err != nil {
+			return
+		}
+		if _, ok := seen[candidate]; ok {
+			return
+		}
+		seen[candidate] = struct{}{}
+		matches = append(matches, candidate)
+	}
+
+	if c.PathBase != "" {
+		try(c.PathBase)
+	}
+	for _, root := range c.Roots {
+		try(root)
+	}
+
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("relative path %q not found under SEARCHIFY_ROOTS (%d root(s)); use an absolute path or set SEARCHIFY_PATH_BASE", rel, len(c.Roots))
+	case 1:
+		return matches[0], nil
+	default:
+		return "", fmt.Errorf("relative path %q is ambiguous; matches: %s", rel, strings.Join(matches, ", "))
+	}
 }
 
 func pathWithinRoot(path, root string) bool {
 	root = filepath.Clean(root)
+	path = filepath.Clean(path)
 	if path == root {
 		return true
 	}
