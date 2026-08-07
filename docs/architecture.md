@@ -57,6 +57,16 @@ Hybrid text-search MCP server in Go.
 - Auth: `Authorization: Bearer` must match `SEARCHIFY_HTTP_TOKEN` (required to start)
 - Probes: `GET /healthz` (no auth)
 - Timeouts: `ReadHeaderTimeout` 5s; ~60s request budget
+- TLS: not terminated in-process — put a reverse proxy in front when exposing beyond localhost (see backlog `opt-tls-reverse-proxy`)
+- App integration: MCP Streamable HTTP today; optional REST `POST /v1/search` + `POST /v1/index` (backlog `opt-rest-v1-search`, `opt-rest-v1-index`)
+- Deletions: per-path remove (`opt-remove-path`) and optional orphan prune (`opt-index-prune`)
+- Auto-index: optional watch/rescan (`opt-auto-index-watch`)
+- Path UX: relative path resolution (`opt-relative-path-resolve`)
+- File types: richer extractors beyond the extension allowlist (`opt-richer-file-types`)
+
+## Optional scale
+
+- Vector search is brute-force cosine today; ANN/HNSW is optional when corpora grow (backlog `opt-hnsw-vectors`)
 
 ## Environment
 

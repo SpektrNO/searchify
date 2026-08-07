@@ -48,3 +48,19 @@ Architecture: [architecture.md](./architecture.md)
 | ID | Feature | Status | Spec |
 |----|---------|--------|------|
 | `phase5-http-hardening` | Streamable HTTP, auth, benchmarks | ✅ | [handoffs/archive/2026-08-07-phase5-http-hardening.md](./handoffs/archive/2026-08-07-phase5-http-hardening.md) |
+
+## F. Optional scale and ops
+
+Optional follow-ups — not required for v1. Spec with `/spec-only` when prioritized.
+
+| ID | Feature | Status | Spec |
+|----|---------|--------|------|
+| `opt-hnsw-vectors` | HNSW (or other ANN) for faster vector/hybrid search at large chunk counts | ⬜ | [architecture.md](./architecture.md) |
+| `opt-tls-reverse-proxy` | Document/deploy TLS termination via reverse proxy in front of `serve http` | ⬜ | [architecture.md](./architecture.md) |
+| `opt-rest-v1-search` | Plain REST `POST /v1/search` for app backends (e.g. Groundline) without MCP JSON-RPC | ⬜ | [architecture.md](./architecture.md) |
+| `opt-rest-v1-index` | Plain REST `POST /v1/index` twin of `index_paths` (`paths`, `force`) for app-driven ingest | ⬜ | [architecture.md](./architecture.md) |
+| `opt-remove-path` | Remove deleted files from the index (MCP tool and/or REST); prune FTS + vectors | ⬜ | [architecture.md](./architecture.md) |
+| `opt-index-prune` | Reconcile index vs disk: drop orphan DB rows for files missing under a root | ⬜ | [architecture.md](./architecture.md) |
+| `opt-auto-index-watch` | Optional fsnotify (or periodic rescan) on configured watch paths to index new/changed files | ⬜ | [architecture.md](./architecture.md) |
+| `opt-relative-path-resolve` | Resolve relative `search_file` / index paths against roots or workspace, not MCP process cwd | ⬜ | [architecture.md](./architecture.md) |
+| `opt-richer-file-types` | Expand indexable types (e.g. PDF/Office text extractors) beyond current extension allowlist | ⬜ | [architecture.md](./architecture.md) |
