@@ -95,6 +95,29 @@ func (s *Server) handleV1Index(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleV1Files(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	start := time.Now()
+	prefix := r.URL.Query().Get("prefix")
+	paths, err := s.local.ListIndexedFiles(prefix)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "list files failed: "+err.Error())
+		return
+	}
+	if paths == nil {
+		paths = []string{}
+	}
+	writeJSON(w, http.StatusOK, listIndexedFilesOutput{
+		Count:      len(paths),
+		Paths:      paths,
+		DurationMs: elapsedMs(start),
+	})
+}
+
 func (s *Server) executeSearchLocal(ctx context.Context, input searchLocalInput) (searchLocalOutput, search.Mode, error) {
 	mode, err := parseSearchMode(input.Mode)
 	if err != nil {

@@ -57,6 +57,7 @@ func (s *Server) Handler(opts HTTPOptions) (http.Handler, error) {
 	mux.Handle(path, bearerAuth(s.cfg.HTTPToken, mcpHandler))
 	mux.Handle("/v1/search", bearerAuth(s.cfg.HTTPToken, http.HandlerFunc(s.handleV1Search)))
 	mux.Handle("/v1/index", bearerAuth(s.cfg.HTTPToken, http.HandlerFunc(s.handleV1Index)))
+	mux.Handle("/v1/files", bearerAuth(s.cfg.HTTPToken, http.HandlerFunc(s.handleV1Files)))
 
 	return requestLogger(mux), nil
 }
@@ -92,7 +93,7 @@ func (s *Server) RunHTTP(ctx context.Context, opts HTTPOptions) error {
 	slog.Info("searchify http listening",
 		"addr", addr,
 		"path", path,
-		"rest", "/v1/search,/v1/index",
+		"rest", "/v1/search,/v1/index,/v1/files",
 		"auth", true,
 		"stateless", true,
 	)

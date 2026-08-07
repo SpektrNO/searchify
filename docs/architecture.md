@@ -60,7 +60,8 @@ Hybrid text-search MCP server in Go.
 - Probes: `GET /healthz` (no auth)
 - Timeouts: `ReadHeaderTimeout` 5s; ~60s request budget
 - TLS: not terminated in-process — put a reverse proxy in front when exposing beyond localhost (see backlog `opt-tls-reverse-proxy`)
-- App integration: MCP Streamable HTTP plus REST `POST /v1/search` + `POST /v1/index` (same Bearer token); optional REST remove/status later
+- App integration: MCP Streamable HTTP plus REST `POST /v1/search`, `POST /v1/index`, `GET /v1/files` (same Bearer token); optional REST remove later
+- Index inventory: MCP `list_indexed_files` and REST `GET /v1/files` return paths currently in the SQLite `files` table (optional prefix)
 - Deletions: MCP/CLI `remove_paths` / `searchify remove`; reconcile orphans with `index_prune` / `searchify prune` (`opt-index-prune`)
 - Auto-index: optional `SEARCHIFY_WATCH_PATHS` fsnotify (+ optional `SEARCHIFY_WATCH_RESCAN`) starts with `mcp stdio` / `serve http`
 - Path UX: relative paths resolve via `SEARCHIFY_PATH_BASE` then roots (no process CWD); absolute paths must stay under roots
