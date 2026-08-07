@@ -145,7 +145,27 @@ func runIndex(args []string) {
 	defer svc.Close()
 
 	start := time.Now()
-	report, err := svc.IndexPaths(fs.Args(), *force)
+	report, err := svc.IndexPathsOpts(fs.Args(), local.IndexPathsOptions{
+		Force: *force,
+		Progress: func(p local.IndexProgress) {
+			switch p.Status {
+			case "scan":
+				fmt.Fprintf(os.Stderr, "index: %d indexable file(s)\n", p.Total)
+			case "start":
+				fmt.Fprintf(os.Stderr, "[%d/%d] indexing %s\n", p.Current, p.Total, p.Path)
+			case "skip":
+				fmt.Fprintf(os.Stderr, "[%d/%d] skip %s\n", p.Current, p.Total, p.Path)
+			case "indexed":
+				fmt.Fprintf(os.Stderr, "[%d/%d] ok (new) %s\n", p.Current, p.Total, p.Path)
+			case "updated":
+				fmt.Fprintf(os.Stderr, "[%d/%d] ok (updated) %s\n", p.Current, p.Total, p.Path)
+			case "empty":
+				fmt.Fprintf(os.Stderr, "[%d/%d] empty %s\n", p.Current, p.Total, p.Path)
+			case "error":
+				fmt.Fprintf(os.Stderr, "[%d/%d] error %s\n", p.Current, p.Total, p.Path)
+			}
+		},
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -265,7 +285,10 @@ environment:
   SEARCHIFY_WATCH_RESCAN       Optional periodic rescan (e.g. 5m; empty=off)
   SEARCHIFY_OCR                Enable OCR for images / scanned PDFs (1/true/on)
   SEARCHIFY_OCR_LANG           Tesseract language (default eng)
-  SEARCHIFY_MAX_FILE_BYTES     Skip files larger than this (default 33554432)
+  SEARCHIFY_MAX_FILE_BYTES     Skip source files larger than this (default 8388608)
+  SEARCHIFY_MAX_EXTRACT_BYTES  Truncate extracted text (default 2097152)
+  SEARCHIFY_MAX_CHUNKS_PER_FILE Max chunks per file (default 256)
+  SEARCHIFY_EMBED_BATCH        Embedding batch size (default 16)
   SEARCHIFY_EXTRACT_TIMEOUT    Per-file extract deadline (default 30s)
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank
   SEARCHIFY_HTTP_TOKEN         Required Bearer token for HTTP transport

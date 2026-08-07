@@ -65,7 +65,7 @@ Hybrid text-search MCP server in Go.
 - Deletions: MCP/CLI `remove_paths` / `searchify remove`; reconcile orphans with `index_prune` / `searchify prune` (`opt-index-prune`)
 - Auto-index: optional `SEARCHIFY_WATCH_PATHS` fsnotify (+ optional `SEARCHIFY_WATCH_RESCAN`) starts with `mcp stdio` / `serve http`
 - Path UX: relative paths resolve via `SEARCHIFY_PATH_BASE` then roots (no process CWD); absolute paths must stay under roots
-- File types: pluggable extractors (`internal/extract`) index passthrough text/code plus PDF/DOCX/XLSX/CSV/HTML (and stretch PPTX/ODF/RTF/EML). Images and scanned-PDF OCR are optional via `SEARCHIFY_OCR` (Tesseract on `PATH`; `pdftoppm` for PDF OCR). Unified `SEARCHIFY_MAX_FILE_BYTES` (default 32 MiB) and `SEARCHIFY_EXTRACT_TIMEOUT` (default 30s). See `opt-richer-file-types` (#24)
+- File types: pluggable extractors (`internal/extract`) index passthrough text/code plus PDF/DOCX/XLSX/CSV/HTML (and stretch PPTX/ODF/RTF/EML). Images and scanned-PDF OCR are optional via `SEARCHIFY_OCR` (Tesseract on `PATH`; `pdftoppm` for PDF OCR). Memory caps: `SEARCHIFY_MAX_FILE_BYTES` (default 8 MiB), `SEARCHIFY_MAX_EXTRACT_BYTES` (2 MiB), `SEARCHIFY_MAX_CHUNKS_PER_FILE` (256), `SEARCHIFY_EMBED_BATCH` (16), plus `SEARCHIFY_EXTRACT_TIMEOUT` (30s). See `opt-richer-file-types` (#24)
 - Observability: search/index tool responses include `duration_ms`; `search_local` adds per-leg `timing` (backlog was `opt-timing-metrics`)
 
 ## Optional scale
