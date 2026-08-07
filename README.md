@@ -24,7 +24,7 @@ When ready for GitHub issues, copy `create-feature-issues.sh` and `load-feature-
 
 Phase 5 (HTTP + hardening):
 
-- `searchify serve http` — Streamable HTTP MCP with Bearer auth, timeouts, `/healthz`
+- `searchify serve http` — Streamable HTTP MCP with Bearer auth, timeouts, `/healthz`, plus REST `POST /v1/search` and `POST /v1/index`
 - `search_web` / `search_local` / `search_file` / `index_*` — unchanged over stdio and HTTP
 - Benchmarks: `make bench` (keyword + hybrid, report-only)
 
@@ -86,6 +86,29 @@ Remote MCP config (illustrative; Cursor versions differ — prefer stdio for loc
 ```
 
 HTTP mode uses go-sdk **stateless** Streamable HTTP for simpler proxying.
+
+### REST API (same server)
+
+Same Bearer token. Prefer localhost / reverse proxy.
+
+```bash
+# Index
+curl -sS -X POST http://127.0.0.1:8080/v1/index \
+  -H "Authorization: Bearer dev-secret" \
+  -H "Content-Type: application/json" \
+  -d '{"paths":["/abs/path/to/docs"],"force":false}'
+
+# Search (twin of search_local)
+curl -sS -X POST http://127.0.0.1:8080/v1/search \
+  -H "Authorization: Bearer dev-secret" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"path allowlist","mode":"hybrid","limit":10}'
+```
+
+| Method | Path | Body |
+|--------|------|------|
+| `POST` | `/v1/search` | `query`, optional `limit`, `mode`, `rerank` |
+| `POST` | `/v1/index` | `paths`, optional `force` |
 
 ## Index and search (CLI)
 

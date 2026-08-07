@@ -12,6 +12,8 @@ Shipped features registry. Complements [feature-backlog.md](./feature-backlog.md
 
 | Date | ID | Feature | GitHub | Notes |
 |------|-----|---------|--------|-------|
+| 2026-08-07 | `opt-rest-v1-search` | Plain REST `POST /v1/search` for app backends (e.g. Groundline) without MCP JSON-RPC | — | POST /v1/search; MCP 0.6.0 |
+| 2026-08-07 | `opt-rest-v1-index` | Plain REST `POST /v1/index` twin of `index_paths` (`paths`, `force`) for app-driven ingest | — | POST /v1/index; MCP 0.6.0 |
 | 2026-08-07 | `opt-remove-path` | Remove deleted files from the index (MCP tool and/or REST); prune FTS + vectors | — | remove_paths MCP + CLI; MCP 0.5.3 |
 | 2026-08-07 | `opt-relative-path-resolve` | Resolve relative `search_file` / index paths against roots or workspace, not MCP process cwd | — | relative paths via PATH_BASE + roots; MCP 0.5.2 |
 | 2026-08-07 | `opt-timing-metrics` | Return process timing on search/index | — | duration_ms + search_local timing |
@@ -60,3 +62,5 @@ Shipped features registry. Complements [feature-backlog.md](./feature-backlog.md
 |----|---------|-----------|------|-------|
 | `opt-relative-path-resolve` | Resolve relative `search_file` / index paths against roots or workspace, not MCP process cwd | 2026-08-07 | [handoffs/archive/2026-08-07-opt-relative-path-resolve.md](./handoffs/archive/2026-08-07-opt-relative-path-resolve.md) | relative paths via PATH_BASE + roots; MCP 0.5.2 |
 | `opt-remove-path` | Remove deleted files from the index (MCP tool and/or REST); prune FTS + vectors | 2026-08-07 | [handoffs/archive/2026-08-07-opt-remove-path.md](./handoffs/archive/2026-08-07-opt-remove-path.md) | remove_paths MCP + CLI; MCP 0.5.3 |
+| `opt-rest-v1-search` | Plain REST `POST /v1/search` for app backends (e.g. Groundline) without MCP JSON-RPC | 2026-08-07 | [handoffs/archive/2026-08-07-opt-rest-v1.md](./handoffs/archive/2026-08-07-opt-rest-v1.md) | POST /v1/search; MCP 0.6.0 |
+| `opt-rest-v1-index` | Plain REST `POST /v1/index` twin of `index_paths` (`paths`, `force`) for app-driven ingest | 2026-08-07 | [handoffs/archive/2026-08-07-opt-rest-v1.md](./handoffs/archive/2026-08-07-opt-rest-v1.md) | POST /v1/index; MCP 0.6.0 |

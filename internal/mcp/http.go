@@ -55,6 +55,8 @@ func (s *Server) Handler(opts HTTPOptions) (http.Handler, error) {
 		_, _ = w.Write([]byte("ok"))
 	})
 	mux.Handle(path, bearerAuth(s.cfg.HTTPToken, mcpHandler))
+	mux.Handle("/v1/search", bearerAuth(s.cfg.HTTPToken, http.HandlerFunc(s.handleV1Search)))
+	mux.Handle("/v1/index", bearerAuth(s.cfg.HTTPToken, http.HandlerFunc(s.handleV1Index)))
 
 	return requestLogger(mux), nil
 }
@@ -90,6 +92,7 @@ func (s *Server) RunHTTP(ctx context.Context, opts HTTPOptions) error {
 	slog.Info("searchify http listening",
 		"addr", addr,
 		"path", path,
+		"rest", "/v1/search,/v1/index",
 		"auth", true,
 		"stateless", true,
 	)
@@ -119,7 +122,7 @@ func bearerAuth(token string, next http.Handler) http.Handler {
 		got := r.Header.Get("Authorization")
 		if got != want {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="searchify"`)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 		next.ServeHTTP(w, r)

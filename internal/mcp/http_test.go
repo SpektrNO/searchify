@@ -3,6 +3,7 @@ package mcp
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -113,4 +114,106 @@ func TestServeHTTPRefusesEmptyToken(t *testing.T) {
 	if cfg.HTTPToken != "" {
 		t.Fatal("expected empty token")
 	}
+}
+
+type restStubEmbedder struct{}
+
+func (restStubEmbedder) Encode(text string) ([]float32, error) {
+	v := make([]float32, 8)
+	v[0] = 1
+	return v, nil
+}
+
+func (restStubEmbedder) EncodeBatch(texts []string) ([][]float32, error) {
+	out := make([][]float32, len(texts))
+	for i := range texts {
+		out[i], _ = restStubEmbedder{}.Encode(texts[i])
+	}
+	return out, nil
+}
+
+func (restStubEmbedder) Close() error { return nil }
+
+func TestRESTSearchAndIndex(t *testing.T) {
+	s := testServer(t, "secret")
+	s.Local().SetEmbedderForTest(restStubEmbedder{})
+
+	root := s.cfg.Roots[0]
+	doc := filepath.Join(root, "note.md")
+	if err := os.WriteFile(doc, []byte("hybrid retrieval with shard realm\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	h, err := s.Handler(HTTPOptions{Path: "/mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	// 401 without token
+	unauth, err := http.Post(srv.URL+"/v1/search", "application/json", strings.NewReader(`{"query":"x"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	unauth.Body.Close()
+	if unauth.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", unauth.StatusCode)
+	}
+
+	// 400 missing query
+	badSearch := restPOST(t, srv.URL+"/v1/search", "secret", `{"query":""}`)
+	defer badSearch.Body.Close()
+	if badSearch.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 empty query, got %d", badSearch.StatusCode)
+	}
+
+	// 400 missing paths
+	badIndex := restPOST(t, srv.URL+"/v1/index", "secret", `{"paths":[]}`)
+	defer badIndex.Body.Close()
+	if badIndex.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 empty paths, got %d", badIndex.StatusCode)
+	}
+
+	indexBody := fmt.Sprintf(`{"paths":[%q],"force":false}`, doc)
+	indexResp := restPOST(t, srv.URL+"/v1/index", "secret", indexBody)
+	defer indexResp.Body.Close()
+	if indexResp.StatusCode != http.StatusOK {
+		t.Fatalf("index status %d", indexResp.StatusCode)
+	}
+	var indexOut indexPathsOutput
+	if err := json.NewDecoder(indexResp.Body).Decode(&indexOut); err != nil {
+		t.Fatal(err)
+	}
+	if indexOut.Indexed != 1 {
+		t.Fatalf("expected indexed=1, got %+v", indexOut)
+	}
+
+	searchResp := restPOST(t, srv.URL+"/v1/search", "secret", `{"query":"shard realm","mode":"keyword","limit":5}`)
+	defer searchResp.Body.Close()
+	if searchResp.StatusCode != http.StatusOK {
+		t.Fatalf("search status %d", searchResp.StatusCode)
+	}
+	var searchOut searchLocalOutput
+	if err := json.NewDecoder(searchResp.Body).Decode(&searchOut); err != nil {
+		t.Fatal(err)
+	}
+	if searchOut.Count == 0 || searchOut.DurationMs < 0 {
+		t.Fatalf("unexpected search response: %+v", searchOut)
+	}
+}
+
+func restPOST(t *testing.T, url, token, body string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
 }
