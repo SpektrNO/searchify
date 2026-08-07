@@ -11,14 +11,21 @@ Hybrid text search MCP server written in Go. Search local files, indexed corpora
 
 ### Spec → implement pipeline
 
-Track features in `docs/feature-backlog.md`. Handoffs live in `docs/handoffs/current.md`.
+Track features in `docs/feature-backlog.md`. Handoffs live in `docs/handoffs/current.md`. GitHub issue lifecycle: [docs/github-workflow.md](docs/github-workflow.md).
 
 ```bash
+# Create epic/feature/task issues from open backlog rows
+./scripts/create-feature-issues.sh --dry-run
+./scripts/create-feature-issues.sh --only <feature-id>
+
+# Resolve parent + ordered tasks
+./scripts/load-feature-issue.sh <feature-id>
+
 ./scripts/github-issue-status.sh in-progress <task#>
 ./scripts/record-feature-complete.sh <feature-id> --issue <n> --note "PR #…"
 ```
 
-When ready for GitHub issues, copy `create-feature-issues.sh` and `load-feature-issue.sh` from the Relativity reference repo (see `setup-project-scaffolding` skill).
+Cursor shortcuts: `/spec-only`, `/implement-handoff`, `/spec-and-implement`, `/lean-implement` (see `.cursor/skills/spec-and-implement/SKILL.md`).
 
 ## Status
 

@@ -1,0 +1,31 @@
+---
+description: Think first, keep changes minimal, and execute toward verifiable goals
+alwaysApply: true
+---
+
+# Agent Discipline
+
+## Think Before Coding
+
+- State assumptions out loud before implementing.
+- If the request is ambiguous, ask — do not silently pick an interpretation.
+- If a simpler approach exists, push back and propose it.
+- When confused, stop. Name what is unclear instead of guessing and running.
+
+## Simplicity First
+
+- Write the minimum code that solves the problem.
+- No speculative abstractions or flexibility nobody asked for.
+- Test: would a senior engineer call this overcomplicated? If yes, simplify.
+
+## Surgical Changes
+
+- Touch only what the task requires.
+- Do not improve neighboring code or refactor what is not broken.
+- Every changed line should trace back to the request.
+
+## Goal-Driven Execution
+
+- Turn vague instructions into verifiable targets before writing code.
+- Example: "Add validation" → write tests for invalid inputs, then make them pass.
+- Define done in terms of observable outcomes (tests pass, behavior verified), not effort spent.

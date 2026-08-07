@@ -1,0 +1,33 @@
+---
+description: Orchestrates full multi-agent or lean in-supervisor pipelines via docs/handoffs/current.md
+alwaysApply: true
+---
+
+# Spec → Implement orchestrator
+
+Read and follow `.cursor/skills/spec-and-implement/SKILL.md`. Detect mode from the user message:
+
+| Mode | Triggers |
+|------|----------|
+| **lean** | `/lean-implement`, `--lean`, or `— lean` |
+| **full** (default) | `/spec-and-implement`, `/spec-only`, `/implement-handoff` without lean flags |
+
+## Both modes
+
+1. **Phase 0-pre** when starting a **new** feature: verify prior handoff done + backlog ✅ + task sub-issues closed → archive `current.md`. Stop if incomplete. Skip when continuing the same handoff (`/implement-handoff`).
+2. **Phase 0** — `load-feature-issue.sh` + ensure `feature/<feature-id>`; link parent issue to branch.
+3. **Phase 3** after Status `done` — push if needed, `gh pr create` with **`Closes #<parent>`**. Never `gh issue close` the parent feature. One feature branch for all tasks.
+
+## Full mode only
+
+You are the **supervisor** only — do not write the handoff or production code yourself.
+
+4. **Phase 1** → Task `specifier`.
+5. **Phase 2** → Task `developer-implementer`.
+6. One-sided: `/spec-only` → specifier Task only; `/implement-handoff` → implementer Task only.
+
+## Lean mode only
+
+You **may** write a thin handoff and implement in this chat (developer-implementer checklist). Do **not** Task-launch specifier/implementer. Announce: *"Lean mode: implementing in-supervisor."*
+
+**GitHub:** Any `gh` / issue script needs Shell `required_permissions: ["full_network"]` (or `["all"]`). Sandbox `Forbidden` ≠ missing issues.

@@ -5,9 +5,10 @@ Segmentation index for feature-by-feature implementation.
 ```text
 /spec-only <issue#|feature-id|title fragment>
 /spec-and-implement <issue#|feature-id|title fragment> — full
+/lean-implement <feature> — thin handoff + implement in-supervisor
 ```
 
-Agents load parent issue + sub-tasks via `./scripts/load-feature-issue.sh` (add script when creating GitHub issues).
+Agents load parent issue + sub-tasks via `./scripts/load-feature-issue.sh`. Bootstrap GitHub issues with `./scripts/create-feature-issues.sh`.
 
 **Legend:** ✅ Implemented · 🟡 Partial · ⬜ Spec only
 
@@ -56,7 +57,7 @@ Optional follow-ups — not required for v1. Spec with `/spec-only` when priorit
 | ID | Feature | Status | Spec |
 |----|---------|--------|------|
 | `opt-hnsw-vectors` | HNSW (or other ANN) for faster vector/hybrid search at large chunk counts | ⬜ | [architecture.md](./architecture.md) |
-| `opt-store-adapter` | Pluggable index store: keep SQLite default; flip config to PostgreSQL + pgvector for shared/multi-writer ANN | ⬜ | [architecture.md](./architecture.md) |
+| `opt-store-adapter` | Pluggable index store: SQLite default; Postgres+pgvector via config (prefer shared Groundline Postgres, not a second server) | ⬜ | [architecture.md](./architecture.md) |
 | `opt-tls-reverse-proxy` | Document/deploy TLS termination via reverse proxy in front of `serve http` | ⬜ | [architecture.md](./architecture.md) |
 | `opt-rest-v1-search` | Plain REST `POST /v1/search` for app backends (e.g. Groundline) without MCP JSON-RPC | ✅ | [handoffs/archive/2026-08-07-opt-rest-v1.md](./handoffs/archive/2026-08-07-opt-rest-v1.md) |
 | `opt-rest-v1-index` | Plain REST `POST /v1/index` twin of `index_paths` (`paths`, `force`) for app-driven ingest | ✅ | [handoffs/archive/2026-08-07-opt-rest-v1.md](./handoffs/archive/2026-08-07-opt-rest-v1.md) |

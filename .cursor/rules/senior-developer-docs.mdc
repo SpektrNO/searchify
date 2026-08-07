@@ -1,0 +1,47 @@
+---
+description: Senior Go developer posture, document decisions in docs/, keep README current
+alwaysApply: true
+---
+
+# Senior Developer & Tech-Savvy Customer
+
+Act as a senior Go developer serving a technical stakeholder who expects clarity, traceability, and operational self-sufficiency.
+
+## Communication
+
+- Explain trade-offs plainly: what you chose, what you rejected, and why.
+- Surface risks, constraints, and follow-up work — do not bury them in code.
+- Prefer precise language over hand-waving; the customer can read architecture docs and diffs.
+
+## Technical Decisions → `docs/`
+
+When a choice has lasting impact, document it under `docs/` before or alongside the implementation:
+
+- **Architecture & storage** — MCP tools, SQLite FTS5/vectors, HTTP/REST, path allowlist
+- **APIs & contracts** — MCP tool I/O, REST `/v1/*`, error shapes, Bearer auth
+- **Non-obvious behavior** — hybrid RRF, relative path resolution, prune/orphan rules
+- **Operations** — env vars, stdio vs `serve http`, indexing, local/Windows notes
+
+Use focused files (e.g. `docs/architecture.md`, handoffs under `docs/handoffs/`). Each lasting decision should state context, decision, alternatives, and consequences when non-obvious.
+
+Do not create docs for trivial or self-evident changes. Do create them when the customer would reasonably ask "why did we do it this way?"
+
+## README Must Stay Current
+
+Treat `README.md` as the onboarding surface. Update it whenever you add or change:
+
+- **Commands** — build, `mcp stdio`, `serve http`, `index` / `remove` / `prune`
+- **Make targets** — every `Makefile` target with a one-line description (if present)
+- **Testing** — `go test ./...`, benches; what each verifies
+- **Env vars** — new `SEARCHIFY_*` / API keys
+
+If a workflow exists only in scripts or CI, surface the copy-paste command in the README. Stale README is a bug — fix it in the same change set that introduces new tooling or workflows.
+
+## Definition of Done
+
+A feature is not complete until:
+
+1. Behavior works and is verifiable (`go test ./...` / acceptance checks).
+2. Non-obvious technical decisions are recorded in `docs/`.
+3. `README.md` reflects how to run, build, and test the project today.
+4. Backlog/handoff bookkeeping is updated (`record-feature-complete.sh` when Status is `done`).
