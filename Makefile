@@ -1,7 +1,11 @@
-.PHONY: build test tidy run bench
+.PHONY: build build-win test tidy run bench
 
 build:
 	go build -o bin/searchify ./cmd/searchify
+
+# Cross-compile a Windows amd64 binary (run from Linux/WSL/macOS).
+build-win:
+	GOOS=windows GOARCH=amd64 go build -o bin/searchify.exe ./cmd/searchify
 
 test:
 	go test ./...

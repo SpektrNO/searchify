@@ -48,6 +48,10 @@ Stdio remains the recommended Cursor transport for local use.
 go mod tidy
 go build -o bin/searchify ./cmd/searchify
 # or: make build
+
+# Windows amd64 cross-compile (from Linux/WSL):
+make build-win
+# → bin/searchify.exe
 ```
 
 ## Benchmarks
