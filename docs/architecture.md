@@ -64,7 +64,7 @@ Hybrid text-search MCP server in Go.
 - Deletions: MCP/CLI `remove_paths` / `searchify remove`; reconcile orphans with `index_prune` / `searchify prune` (`opt-index-prune`)
 - Auto-index: optional `SEARCHIFY_WATCH_PATHS` fsnotify (+ optional `SEARCHIFY_WATCH_RESCAN`) starts with `mcp stdio` / `serve http`
 - Path UX: relative paths resolve via `SEARCHIFY_PATH_BASE` then roots (no process CWD); absolute paths must stay under roots
-- File types: today only a text/code extension allowlist (`.md`, `.txt`, `.go`, `.ts`/`.tsx`, `.js`, `.json`, `.yaml`/`.yml`, `.sql`, `.sh`, `.py`, `.rs`). Backlog `opt-richer-file-types` (#24) adds extractors for office/docs, images (OCR), and common structured text (see issue for format tiers)
+- File types: today only a text/code extension allowlist (`.md`, `.txt`, `.go`, `.ts`/`.tsx`, `.js`, `.json`, `.yaml`/`.yml`, `.sql`, `.sh`, `.py`, `.rs`). Backlog `opt-richer-file-types` (#24) adds pluggable extractors for PDF/Office/images (OCR) and cheap text/HTML expands — P0/P1 scope, env budgets, and contracts in [handoffs/current.md](./handoffs/current.md)
 - Observability: search/index tool responses include `duration_ms`; `search_local` adds per-leg `timing` (backlog was `opt-timing-metrics`)
 
 ## Optional scale
