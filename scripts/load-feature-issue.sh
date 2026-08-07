@@ -222,8 +222,8 @@ cat <<EOF
 
 ## Task order
 
-Implement open tasks in this order: `audit` → `spec` → `engine` → `verify` → `docs`
-(docs-only features may omit `engine` — skip missing tasks)
+Implement open tasks in this order: audit → spec → engine → verify → docs
+(docs-only features may omit engine — skip missing tasks)
 
 ## Sub-tasks
 

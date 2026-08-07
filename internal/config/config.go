@@ -5,29 +5,37 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
-	EnvRoots      = "SEARCHIFY_ROOTS"
-	EnvIndexDir   = "SEARCHIFY_INDEX_DIR"
-	EnvLangSearch = "LANGSEARCH_API_KEY"
-	EnvHTTPToken  = "SEARCHIFY_HTTP_TOKEN"
-	EnvHTTPAddr   = "SEARCHIFY_HTTP_ADDR"
-	EnvEmbedModel = "SEARCHIFY_EMBED_MODEL"
-	EnvPathBase   = "SEARCHIFY_PATH_BASE"
+	EnvRoots         = "SEARCHIFY_ROOTS"
+	EnvIndexDir      = "SEARCHIFY_INDEX_DIR"
+	EnvLangSearch    = "LANGSEARCH_API_KEY"
+	EnvHTTPToken     = "SEARCHIFY_HTTP_TOKEN"
+	EnvHTTPAddr      = "SEARCHIFY_HTTP_ADDR"
+	EnvEmbedModel    = "SEARCHIFY_EMBED_MODEL"
+	EnvPathBase      = "SEARCHIFY_PATH_BASE"
+	EnvWatchPaths    = "SEARCHIFY_WATCH_PATHS"
+	EnvWatchDebounce = "SEARCHIFY_WATCH_DEBOUNCE"
+	EnvWatchRescan   = "SEARCHIFY_WATCH_RESCAN"
 
-	defaultEmbedModel = "minilm-l6-v2"
-	defaultHTTPAddr   = ":8080"
+	defaultEmbedModel    = "minilm-l6-v2"
+	defaultHTTPAddr      = ":8080"
+	defaultWatchDebounce = time.Second
 )
 
 type Config struct {
-	Roots      []string
-	IndexDir   string
-	LangSearch string
-	HTTPToken  string
-	HTTPAddr   string
-	EmbedModel string
-	PathBase   string // optional; relative paths tried here first
+	Roots         []string
+	IndexDir      string
+	LangSearch    string
+	HTTPToken     string
+	HTTPAddr      string
+	EmbedModel    string
+	PathBase      string        // optional; relative paths tried here first
+	WatchPaths    []string      // optional; empty disables auto-index watch
+	WatchDebounce time.Duration // coalesce fs events (default 1s)
+	WatchRescan   time.Duration // optional periodic IndexPaths; 0 disables
 }
 
 func Load() (*Config, error) {
@@ -46,14 +54,31 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	watchPaths, err := parseWatchPaths(os.Getenv(EnvWatchPaths), roots)
+	if err != nil {
+		return nil, err
+	}
+
+	debounce, err := parseDurationEnv(EnvWatchDebounce, os.Getenv(EnvWatchDebounce), defaultWatchDebounce)
+	if err != nil {
+		return nil, err
+	}
+	rescan, err := parseDurationEnv(EnvWatchRescan, os.Getenv(EnvWatchRescan), 0)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
-		Roots:      roots,
-		IndexDir:   indexDir,
-		LangSearch: os.Getenv(EnvLangSearch),
-		HTTPToken:  os.Getenv(EnvHTTPToken),
-		HTTPAddr:   defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
-		EmbedModel: defaultString(os.Getenv(EnvEmbedModel), defaultEmbedModel),
-		PathBase:   pathBase,
+		Roots:         roots,
+		IndexDir:      indexDir,
+		LangSearch:    os.Getenv(EnvLangSearch),
+		HTTPToken:     os.Getenv(EnvHTTPToken),
+		HTTPAddr:      defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
+		EmbedModel:    defaultString(os.Getenv(EnvEmbedModel), defaultEmbedModel),
+		PathBase:      pathBase,
+		WatchPaths:    watchPaths,
+		WatchDebounce: debounce,
+		WatchRescan:   rescan,
 	}, nil
 }
 
@@ -110,6 +135,58 @@ func parsePathBase(raw string, roots []string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("%s %q must be under a SEARCHIFY_ROOTS entry", EnvPathBase, abs)
+}
+
+func parseWatchPaths(raw string, roots []string) ([]string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{})
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		abs, err := filepath.Abs(filepath.Clean(part))
+		if err != nil {
+			return nil, fmt.Errorf("resolve %s entry %q: %w", EnvWatchPaths, part, err)
+		}
+		under := false
+		for _, root := range roots {
+			if pathWithinRoot(abs, root) {
+				under = true
+				break
+			}
+		}
+		if !under {
+			return nil, fmt.Errorf("%s entry %q must be under a SEARCHIFY_ROOTS entry", EnvWatchPaths, abs)
+		}
+		if _, ok := seen[abs]; ok {
+			continue
+		}
+		seen[abs] = struct{}{}
+		out = append(out, abs)
+	}
+	return out, nil
+}
+
+func parseDurationEnv(name, raw string, fallback time.Duration) (time.Duration, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return fallback, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("parse %s: %w", name, err)
+	}
+	if d < 0 {
+		return 0, fmt.Errorf("%s must be >= 0", name)
+	}
+	return d, nil
 }
 
 func defaultIndexDir(raw string) (string, error) {
