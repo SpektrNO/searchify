@@ -227,6 +227,105 @@ func TestSkipEmbedIndexesWithoutVectors(t *testing.T) {
 	}
 }
 
+func TestEmbedFilesBackfill(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "a.md")
+	if err := os.WriteFile(path, []byte("backfill embed vectors please\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Roots:            []string{root},
+		IndexDir:         filepath.Join(t.TempDir(), "index"),
+		EmbedModel:       "stub",
+		SkipEmbed:        true,
+		MaxFileBytes:     1024 * 1024,
+		MaxExtractBytes:  1024 * 1024,
+		MaxChunksPerFile: 64,
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+	svc.embedForTest = &stubEmbedder{}
+
+	if _, err := svc.IndexPaths([]string{root}, false); err != nil {
+		t.Fatal(err)
+	}
+	vc, err := svc.VectorCount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vc != 0 {
+		t.Fatalf("expected 0 vectors after skip-embed, got %d", vc)
+	}
+
+	cfg.SkipEmbed = false
+	cfg.EmbedBackend = config.EmbedBackendONNX
+	report, err := svc.EmbedFiles([]string{path}, EmbedOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Embedded < 1 {
+		t.Fatalf("embedded=%d msgs=%v", report.Embedded, report.Messages)
+	}
+	vc, err = svc.VectorCount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vc < 1 {
+		t.Fatalf("expected vectors after embed, got %d", vc)
+	}
+}
+
+func TestProcessEmbedBackendSpawnsWorker(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "b.md")
+	if err := os.WriteFile(path, []byte("process backend spawn test\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Roots:            []string{root},
+		IndexDir:         filepath.Join(t.TempDir(), "index"),
+		EmbedModel:       "stub",
+		EmbedBackend:     config.EmbedBackendProcess,
+		MaxFileBytes:     1024 * 1024,
+		MaxExtractBytes:  1024 * 1024,
+		MaxChunksPerFile: 64,
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+	svc.embedForTest = &stubEmbedder{}
+
+	var spawned string
+	svc.spawnEmbedForTest = func(p string) error {
+		spawned = p
+		_, err := svc.EmbedFiles([]string{p}, EmbedOptions{})
+		return err
+	}
+
+	report, err := svc.IndexPaths([]string{path}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Indexed != 1 {
+		t.Fatalf("indexed=%d msgs=%v", report.Indexed, report.Messages)
+	}
+	if spawned != path {
+		t.Fatalf("spawn path=%q want %q", spawned, path)
+	}
+	vc, err := svc.VectorCount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vc < 1 {
+		t.Fatalf("expected vectors via spawn worker, got %d", vc)
+	}
+}
+
 func TestHybridFindsParaphrase(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "realms.md")

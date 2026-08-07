@@ -20,13 +20,14 @@ import (
 const schemaVersion = 2
 
 type Service struct {
-	cfg          *config.Config
-	db           *sql.DB
-	extract      *extract.Registry
-	embedMu      sync.Mutex
-	embedder     Embedder
-	embedErr     error
-	embedForTest Embedder
+	cfg               *config.Config
+	db                *sql.DB
+	extract           *extract.Registry
+	embedMu           sync.Mutex
+	embedder          Embedder
+	embedErr          error
+	embedForTest      Embedder
+	spawnEmbedForTest func(path string) error // optional; tests avoid real exec
 }
 
 type IndexReport struct {
@@ -282,20 +283,6 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 		}
 	}
 
-	if len(texts) > 0 && !s.cfg.SkipEmbed {
-		if err := s.embedAndStore(chunkIDs, texts); err != nil {
-			return warn, err
-		}
-		if err := s.setMeta("embed_model", s.cfg.EmbedModel); err != nil {
-			return warn, err
-		}
-	} else if s.cfg.SkipEmbed {
-		if warn != "" {
-			warn += "; "
-		}
-		warn += "keyword-only (SEARCHIFY_SKIP_EMBED); vectors not written"
-	}
-
 	now := time.Now().UTC().Format(time.RFC3339)
 	hash := fileHash(content)
 	_, err = s.db.Exec(
@@ -308,7 +295,41 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 		   indexed_at = excluded.indexed_at`,
 		path, info.ModTime().UnixNano(), info.Size(), hash, now,
 	)
-	return warn, err
+	if err != nil {
+		return warn, err
+	}
+
+	if len(texts) == 0 || !s.cfg.WantVectors() {
+		if !s.cfg.WantVectors() {
+			if warn != "" {
+				warn += "; "
+			}
+			warn += "keyword-only (SEARCHIFY_SKIP_EMBED / SEARCHIFY_EMBED_BACKEND=none); vectors not written"
+		}
+		return warn, nil
+	}
+
+	switch {
+	case s.cfg.UseProcessEmbed():
+		if err := s.runEmbedWorker(path); err != nil {
+			return warn, err
+		}
+	case s.cfg.UseInProcessEmbed():
+		if err := s.embedAndStore(chunkIDs, texts); err != nil {
+			return warn, err
+		}
+		if err := s.setMeta("embed_model", s.cfg.EmbedModel); err != nil {
+			return warn, err
+		}
+	}
+	return warn, nil
+}
+
+func (s *Service) runEmbedWorker(path string) error {
+	if s.spawnEmbedForTest != nil {
+		return s.spawnEmbedForTest(path)
+	}
+	return s.SpawnEmbedFile(path)
 }
 
 func (s *Service) embedAndStore(chunkIDs, texts []string) error {
