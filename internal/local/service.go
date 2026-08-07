@@ -20,14 +20,15 @@ import (
 const schemaVersion = 2
 
 type Service struct {
-	cfg               *config.Config
-	db                *sql.DB
-	extract           *extract.Registry
-	embedMu           sync.Mutex
-	embedder          Embedder
-	embedErr          error
-	embedForTest      Embedder
-	spawnEmbedForTest func(path string) error // optional; tests avoid real exec
+	cfg                 *config.Config
+	db                  *sql.DB
+	extract             *extract.Registry
+	embedMu             sync.Mutex
+	embedder            Embedder
+	embedErr            error
+	embedForTest        Embedder
+	spawnEmbedForTest   func(path string) error // optional; tests avoid real exec
+	spawnExtractForTest func(path string) (string, []string, error)
 }
 
 type IndexReport struct {

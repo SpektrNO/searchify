@@ -35,6 +35,8 @@ func main() {
 		runServe(os.Args[2:])
 	case "index":
 		runIndex(os.Args[2:])
+	case "extract":
+		runExtract(os.Args[2:])
 	case "embed":
 		runEmbed(os.Args[2:])
 	case "remove":
@@ -182,6 +184,8 @@ func runIndex(args []string) {
 	}
 	if cfg.TextOnly {
 		fmt.Fprintln(os.Stderr, "index: --text-only / SEARCHIFY_TEXT_ONLY — PDF/Office/HTML extractors disabled")
+	} else if !cfg.ExtractInProcess {
+		fmt.Fprintln(os.Stderr, "index: PDF/Office/HTML extract in short-lived worker (set SEARCHIFY_EXTRACT_INPROCESS=1 for old in-process behavior)")
 	}
 
 	start := time.Now()
@@ -396,6 +400,8 @@ usage:
   searchify mcp stdio          Run MCP server over stdin/stdout
   searchify index [--force] [--skip-embed] [--text-only] <paths...>
                                Build or refresh local keyword index (+ embed worker by default)
+  searchify extract --file <path>
+                               Extract one file to JSON on stdout (index extract worker)
   searchify embed [--force] [--file path] [paths...]
                                Backfill chunk vectors (in-process ONNX; prefer after --skip-embed)
   searchify remove <paths...>  Remove files/dirs from the local index
@@ -420,6 +426,7 @@ environment:
   SEARCHIFY_EMBED_BACKEND      none|onnx|process (default process: spawn embed worker)
   SEARCHIFY_SKIP_EMBED         1=FTS only, skip ONNX (low RAM; same idea as backend=none)
   SEARCHIFY_TEXT_ONLY          1=index text/code extensions only (no PDF/Office/HTML)
+  SEARCHIFY_EXTRACT_INPROCESS  1=extract PDF/Office in-process (default: short-lived worker)
   SEARCHIFY_EMBED_RELOAD       Close embedder each file when backend=onnx (default on)
   SEARCHIFY_EXTRACT_TIMEOUT    Per-file extract deadline (default 30s)
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank

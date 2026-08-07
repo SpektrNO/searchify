@@ -154,15 +154,6 @@ func (s *Service) emitProgress(fn func(IndexProgress), p IndexProgress) {
 	fn(p)
 }
 
-func (s *Service) extractFile(ctx context.Context, path string, size int64) (string, []string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", nil, err
-	}
-	defer f.Close()
-	return s.extract.Extract(ctx, path, f, size)
-}
-
 func (r *IndexReport) addMessage(msg string) {
 	if len(r.Messages) >= maxIndexMessages {
 		return

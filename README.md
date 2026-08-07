@@ -152,22 +152,22 @@ CLI `index` prints progress on **stderr** (`[i/N] indexing …`) so long catalog
 
 **Large corpora / Windows OOM:** the ONNX embedder (kjarni) can grow native RSS into many GB. Default `SEARCHIFY_EMBED_BACKEND=process` keeps ONNX out of the long-lived index process (spawns `searchify embed --file` per file). Alternatives:
 
+**Large corpora / Windows OOM:** two separate risks:
+
+1. **ONNX embeds** — use `--skip-embed` for FTS first; vectors later via `searchify embed` / `SEARCHIFY_EMBED_BACKEND=process`.
+2. **PDF/Office parsers** — by default index runs them in a **short-lived `searchify extract` worker** so parent RAM does not ratchet. (Set `SEARCHIFY_EXTRACT_INPROCESS=1` only for debugging.)
+
 ```bash
-# FTS only (lowest RAM; use mode=keyword)
-# Put flags BEFORE or AFTER paths — both work:
-searchify index --skip-embed /path/to/corpus
-searchify index /path/to/corpus --skip-embed
-
-# Confirm on stderr: "keyword-only — ONNX/embedder will NOT load"
-# If you instead see "EMBED_BACKEND=process" or "onnx", skip-embed did not apply.
-
-# If RAM still spikes immediately, use a fresh index dir + text-only (no PDF/Office parsers):
+# Full vault, keyword-only, PDF/Office via extract workers (recommended first pass)
 set SEARCHIFY_INDEX_DIR=C:\temp\searchify-fts
-searchify index --skip-embed --text-only /path/to/corpus
-# stderr also prints index.db size and per-file heap≈MiB to show which file blows up
+searchify index --skip-embed "C:\path\to\vault"
+
+# Confirm stderr includes:
+#   keyword-only — ONNX/embedder will NOT load
+#   PDF/Office/HTML extract in short-lived worker
 ```
 
-Or set `SEARCHIFY_SKIP_EMBED=1` / `SEARCHIFY_EMBED_BACKEND=none` (no quotes inside the value in CMD).
+`--text-only` is optional (text/code extensions only) for diagnosis — not required for normal vault indexing.
 
 ### Watch vs serve
 
@@ -223,7 +223,8 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_EMBED_BATCH` | no | ONNX batch size (default `1`) |
 | `SEARCHIFY_EMBED_BACKEND` | no | `process` (default: spawn `searchify embed` per file), `onnx` (in-process), `none` (FTS only) |
 | `SEARCHIFY_SKIP_EMBED` | no | `1`/`true` — FTS/keyword index only; **do not load ONNX** (same idea as `EMBED_BACKEND=none`) |
-| `SEARCHIFY_TEXT_ONLY` | no | `1`/`true` — index passthrough text/code only (disables PDF/Office/HTML extractors; helps low-RAM ingest) |
+| `SEARCHIFY_TEXT_ONLY` | no | `1`/`true` — index passthrough text/code only (disables PDF/Office/HTML extractors; diagnosis aid) |
+| `SEARCHIFY_EXTRACT_INPROCESS` | no | `1`/`true` — extract PDF/Office in the index process (default **off**: short-lived `searchify extract` worker) |
 | `SEARCHIFY_EMBED_RELOAD` | no | Close/reopen embedder after each file when `backend=onnx` (default **on**; set `0` to disable) |
 | `SEARCHIFY_EXTRACT_TIMEOUT` | no | Per-file extract deadline (Go duration, default `30s`) |
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |

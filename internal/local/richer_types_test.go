@@ -38,12 +38,13 @@ func TestIndexRicherFileTypes(t *testing.T) {
 	mustWrite("ignore.bin", []byte("should be ignored"))
 
 	cfg := &config.Config{
-		Roots:          []string{root},
-		IndexDir:       filepath.Join(t.TempDir(), "index"),
-		EmbedModel:     "stub",
-		MaxFileBytes:   32 * 1024 * 1024,
-		ExtractTimeout: 30 * time.Second,
-		OCREnabled:     false,
+		Roots:              []string{root},
+		IndexDir:           filepath.Join(t.TempDir(), "index"),
+		EmbedModel:         "stub",
+		MaxFileBytes:       32 * 1024 * 1024,
+		ExtractTimeout:     30 * time.Second,
+		OCREnabled:         false,
+		ExtractInProcess:   true, // avoid spawning searchify extract in unit tests
 	}
 	svc, err := NewService(cfg)
 	if err != nil {
@@ -133,6 +134,54 @@ func TestMaxFileBytesSkip(t *testing.T) {
 	}
 }
 
+func TestExtractWorkerSpawnIndexesPDF(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "book.pdf")
+	if err := os.WriteFile(path, richerMinimalPDF("WorkerPdfHitXYZ"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Roots:            []string{root},
+		IndexDir:         filepath.Join(t.TempDir(), "index"),
+		EmbedModel:       "stub",
+		SkipEmbed:        true,
+		MaxFileBytes:     1024 * 1024,
+		MaxExtractBytes:  1024 * 1024,
+		MaxChunksPerFile: 64,
+		ExtractTimeout:   5 * time.Second,
+		// ExtractInProcess left false → uses spawn hook
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+
+	var spawned string
+	svc.spawnExtractForTest = func(p string) (string, []string, error) {
+		spawned = p
+		return "WorkerPdfHitXYZ from child\n", nil, nil
+	}
+
+	report, err := svc.IndexPaths([]string{path}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Indexed != 1 {
+		t.Fatalf("indexed=%d msgs=%v", report.Indexed, report.Messages)
+	}
+	if spawned != path {
+		t.Fatalf("spawned=%q want %q", spawned, path)
+	}
+	res, err := svc.Search(SearchParams{Query: "WorkerPdfHitXYZ", Mode: search.ModeKeyword, Limit: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Results) == 0 {
+		t.Fatal("expected keyword hit from extract-worker text")
+	}
+}
+
 func TestTextOnlySkipsPDF(t *testing.T) {
 	root := t.TempDir()
 	md := filepath.Join(root, "a.md")
@@ -149,6 +198,7 @@ func TestTextOnlySkipsPDF(t *testing.T) {
 		EmbedModel:       "stub",
 		SkipEmbed:        true,
 		TextOnly:         true,
+		ExtractInProcess: true,
 		MaxFileBytes:     1024 * 1024,
 		MaxExtractBytes:  1024 * 1024,
 		MaxChunksPerFile: 64,

@@ -71,6 +71,7 @@ Hybrid text-search MCP server in Go.
 ## Optional scale
 
 - **Embedding memory (`opt-embed-worker`):** in-process kjarni→ONNX can pin multi-GB native RSS (outside Go GC). Default `SEARCHIFY_EMBED_BACKEND=process`: index writes FTS then spawns short-lived `searchify embed --file` so the parent never loads ONNX and the OS reclaims worker RSS on exit. `onnx` keeps legacy in-process embeds (+ `SEARCHIFY_EMBED_RELOAD`). `none` / `SEARCHIFY_SKIP_EMBED` / `index --skip-embed` stay FTS-only; backfill with `searchify embed`. Keep `mode=keyword` first-class.
+- **Extract memory:** PDF/Office/HTML parsers (especially `ledongthuc/pdf`) can spike multi-GB heap in-process. Default: index spawns short-lived `searchify extract --file` for non-passthrough types (`SEARCHIFY_EXTRACT_INPROCESS=1` restores old behavior).
 - Vector search is brute-force cosine today; ANN/HNSW is optional when corpora grow (backlog `opt-hnsw-vectors`)
 - Storage stays SQLite FTS5 + blob vectors by default; optional store adapter (backlog `opt-store-adapter`) would select backend via config (e.g. `SEARCHIFY_STORE=sqlite|postgres`) so PostgreSQL + pgvector can replace the local DB without changing MCP tools
 - **Postgres hosting decision:** when `opt-store-adapter` lands, prefer the **same Postgres instance as Groundline** on a given host (shared server, Searchify-owned schema/database or prefixed tables)—do not run a second Postgres solely for Searchify unless isolation requirements force it. Connection via env (DSN) pointing at that shared instance.
