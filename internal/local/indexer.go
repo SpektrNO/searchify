@@ -101,7 +101,7 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 
 		maxExtract := s.cfg.MaxExtractBytes
 		if maxExtract <= 0 {
-			maxExtract = 2 * 1024 * 1024
+			maxExtract = 512 * 1024
 		}
 		if int64(len(text)) > maxExtract {
 			report.addMessage(fmt.Sprintf("%s: extracted text truncated to %d bytes (SEARCHIFY_MAX_EXTRACT_BYTES)", path, maxExtract))
@@ -128,11 +128,12 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 		}
 		s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: status})
 
-		// Large ONNX batches can retain heap on Windows; release periodically.
-		if n%5 == 0 {
-			runtime.GC()
-			debug.FreeOSMemory()
+		// Drop native ONNX RSS (not managed by Go GC) and return pages to the OS.
+		if s.cfg.EmbedReload && !s.cfg.SkipEmbed {
+			s.dropEmbedder()
 		}
+		runtime.GC()
+		debug.FreeOSMemory()
 	}
 
 	if report.Indexed > 0 || report.Updated > 0 {

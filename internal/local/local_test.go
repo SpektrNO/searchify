@@ -182,6 +182,51 @@ func TestListIndexedFiles(t *testing.T) {
 	}
 }
 
+func TestSkipEmbedIndexesWithoutVectors(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "a.md")
+	if err := os.WriteFile(path, []byte("hello skip embed world\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Roots:            []string{root},
+		IndexDir:         filepath.Join(t.TempDir(), "index"),
+		EmbedModel:       "stub",
+		SkipEmbed:        true,
+		MaxFileBytes:     1024 * 1024,
+		MaxExtractBytes:  1024 * 1024,
+		MaxChunksPerFile: 64,
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+	// No embedder injected — SkipEmbed must not call getEmbedder.
+
+	report, err := svc.IndexPaths([]string{root}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Indexed != 1 {
+		t.Fatalf("indexed=%d msgs=%v", report.Indexed, report.Messages)
+	}
+	vc, err := svc.VectorCount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vc != 0 {
+		t.Fatalf("expected 0 vectors, got %d", vc)
+	}
+	res, err := svc.Search(SearchParams{Query: "skip embed", Mode: search.ModeKeyword, Limit: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Results) == 0 {
+		t.Fatal("expected keyword hits after skip-embed index")
+	}
+}
+
 func TestHybridFindsParaphrase(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "realms.md")
