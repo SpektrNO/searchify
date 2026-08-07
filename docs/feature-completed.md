@@ -25,6 +25,7 @@ Shipped features registry. Complements [feature-backlog.md](./feature-backlog.md
 | 2026-07-11 | `phase1-mcp-skeleton` | MCP stdio server, search_file, index_status | — | Initial project scaffolding |
 | 2026-07-12 | `phase2-local-keyword` | index_paths + search_local (BM25) | — | SQLite FTS5 index_paths search_local CLI index |
 | 2026-07-12 | `phase3-hybrid-local` | In-process vectors, RRF, optional LangSearch rerank | — | Completed via spec→implement pipeline |
+| 2026-08-08 | `opt-embed-worker` | Isolate/replace in-process kjarni ONNX embeds so bulk index does not pin multi-GB native RSS — prefer subprocess embed worker + optional lighter backend; keep `--skip-embed` / keyword path — [#36](https://github.com/SpektrNO/searchify/issues/36) | #36 | MCP 0.8.0: SEARCHIFY_EMBED_BACKEND=process + searchify embed |
 | _—_ | _pipeline completions append here (newest first)_ | | | |
 
 ---
@@ -70,3 +71,4 @@ Shipped features registry. Complements [feature-backlog.md](./feature-backlog.md
 | `opt-index-prune` | Reconcile index vs disk: drop orphan DB rows for files missing under a root | 2026-08-07 | [handoffs/archive/2026-08-07-opt-index-prune.md](./handoffs/archive/2026-08-07-opt-index-prune.md) | index_prune MCP + CLI prune; MCP 0.6.1 |
 | `opt-auto-index-watch` | Optional fsnotify (or periodic rescan) on configured watch paths to index new/changed files | 2026-08-07 | [handoffs/archive/2026-08-07-opt-auto-index-watch.md](./handoffs/archive/2026-08-07-opt-auto-index-watch.md) | fsnotify watch + optional rescan; MCP 0.6.2 |
 | `opt-richer-file-types` | Extract and index PDF, Office, images (OCR), HTML/CSV and related formats beyond the text/code allowlist | 2026-08-07 | [handoffs/archive/2026-08-07-opt-richer-file-types.md](./handoffs/archive/2026-08-07-opt-richer-file-types.md) | PDF/Office/HTML extractors + optional OCR; MCP 0.7.0 |
+| `opt-embed-worker` | Isolate/replace in-process kjarni ONNX embeds so bulk index does not pin multi-GB native RSS — prefer subprocess embed worker + optional lighter backend; keep `--skip-embed` / keyword path — [#36](https://github.com/SpektrNO/searchify/issues/36) | 2026-08-08 | [architecture.md](./architecture.md) | MCP 0.8.0: SEARCHIFY_EMBED_BACKEND=process + searchify embed |

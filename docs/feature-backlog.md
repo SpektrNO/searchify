@@ -56,7 +56,7 @@ Optional follow-ups — not required for v1. Spec with `/spec-only` when priorit
 
 | ID | Feature | Status | Spec |
 |----|---------|--------|------|
-| `opt-embed-worker` | Isolate/replace in-process kjarni ONNX embeds so bulk index does not pin multi-GB native RSS — prefer subprocess embed worker + optional lighter backend; keep `--skip-embed` / keyword path — [#36](https://github.com/SpektrNO/searchify/issues/36) | ⬜ | [architecture.md](./architecture.md) |
+| `opt-embed-worker` | Isolate/replace in-process kjarni ONNX embeds so bulk index does not pin multi-GB native RSS — prefer subprocess embed worker + optional lighter backend; keep `--skip-embed` / keyword path — [#36](https://github.com/SpektrNO/searchify/issues/36) | ✅ | [architecture.md](./architecture.md) |
 | `opt-hnsw-vectors` | HNSW (or other ANN) for faster vector/hybrid search at large chunk counts | ⬜ | [architecture.md](./architecture.md) |
 | `opt-store-adapter` | Pluggable index store: SQLite default; Postgres+pgvector via config (prefer shared Groundline Postgres, not a second server) | ⬜ | [architecture.md](./architecture.md) |
 | `opt-tls-reverse-proxy` | Document/deploy TLS termination via reverse proxy in front of `serve http` | ⬜ | [architecture.md](./architecture.md) |
