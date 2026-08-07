@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spektr/searchify/internal/file"
@@ -16,17 +17,19 @@ type searchFileInput struct {
 }
 
 type searchFileOutput struct {
-	Count   int             `json:"count"`
-	Results []search.Result `json:"results"`
+	Count      int             `json:"count"`
+	Results    []search.Result `json:"results"`
+	DurationMs int             `json:"duration_ms"`
 }
 
 func (s *Server) searchFile(ctx context.Context, req *mcp.CallToolRequest, input searchFileInput) (*mcp.CallToolResult, searchFileOutput, error) {
 	_ = ctx
 	_ = req
+	start := time.Now()
 
 	allowed, err := s.cfg.AllowedPath(input.Path)
 	if err != nil {
-		return toolErrorResult("access denied: %v", err), searchFileOutput{}, nil
+		return toolErrorResult("access denied: %v", err), searchFileOutput{DurationMs: elapsedMs(start)}, nil
 	}
 
 	results, err := file.Search(allowed, file.SearchOptions{
@@ -35,11 +38,14 @@ func (s *Server) searchFile(ctx context.Context, req *mcp.CallToolRequest, input
 		CaseSensitive: input.CaseSensitive,
 	})
 	if err != nil {
-		return toolErrorResult("search failed: %v", err), searchFileOutput{}, nil
+		return toolErrorResult("search failed: %v", err), searchFileOutput{DurationMs: elapsedMs(start)}, nil
 	}
 
+	duration := elapsedMs(start)
+	logToolTiming("search_file", duration)
 	return nil, searchFileOutput{
-		Count:   len(results),
-		Results: results,
+		Count:      len(results),
+		Results:    results,
+		DurationMs: duration,
 	}, nil
 }

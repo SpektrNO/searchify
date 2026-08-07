@@ -142,6 +142,8 @@ Search the persisted index. Default mode is `hybrid` when vectors exist, otherwi
 
 Modes: `keyword` (FTS5 BM25), `vector` (cosine similarity), `hybrid` (RRF fusion). Set `rerank: true` to reorder results with LangSearch (requires `LANGSEARCH_API_KEY`).
 
+Responses include `duration_ms` (wall clock). `search_local` also returns a `timing` breakdown (`keyword_ms` / `vector_ms` / `rrf_ms` / `rerank_ms`) for the legs that ran.
+
 ### Upgrading from phase 2
 
 Schema v2 adds vector storage. Existing keyword indexes keep working. Run `index_paths` with `"force": true` (or `searchify index --force`) once to embed all chunks.

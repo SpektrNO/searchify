@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spektr/searchify/internal/config"
 	"github.com/spektr/searchify/internal/local"
@@ -139,13 +140,16 @@ func runIndex(args []string) {
 	}
 	defer svc.Close()
 
+	start := time.Now()
 	report, err := svc.IndexPaths(fs.Args(), *force)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("indexed=%d updated=%d skipped=%d errors=%d\n",
-		report.Indexed, report.Updated, report.Skipped, report.Errors)
+	fmt.Printf("indexed=%d updated=%d skipped=%d errors=%d duration_ms=%d\n",
+		report.Indexed, report.Updated, report.Skipped, report.Errors,
+		int(time.Since(start)/time.Millisecond))
+
 	for _, msg := range report.Messages {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", msg)
 	}

@@ -91,8 +91,11 @@ func TestIndexAndSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(results) == 0 {
+	if len(results.Results) == 0 {
 		t.Fatal("expected search hits")
+	}
+	if results.Timing.KeywordMs < 0 {
+		t.Fatal("expected non-negative keyword timing")
 	}
 
 	status, err := svc.Status()
@@ -147,7 +150,7 @@ func TestHybridFindsParaphrase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(keyword) > 0 {
+	if len(keyword.Results) > 0 {
 		t.Log("keyword unexpectedly matched; continuing")
 	}
 
@@ -159,7 +162,7 @@ func TestHybridFindsParaphrase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(vector) == 0 {
+	if len(vector.Results) == 0 {
 		t.Fatal("expected vector hit for paraphrase query")
 	}
 
@@ -171,8 +174,11 @@ func TestHybridFindsParaphrase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(hybrid) == 0 {
+	if len(hybrid.Results) == 0 {
 		t.Fatal("expected hybrid hit for paraphrase query")
+	}
+	if hybrid.Timing.KeywordMs < 0 || hybrid.Timing.VectorMs < 0 {
+		t.Fatal("expected non-negative hybrid leg timings")
 	}
 }
 

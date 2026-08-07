@@ -171,6 +171,11 @@ func (s *Service) getEmbedder() (Embedder, error) {
 	return s.embedder, s.embedErr
 }
 
+// SetEmbedderForTest injects a fake embedder (tests only).
+func (s *Service) SetEmbedderForTest(e Embedder) {
+	s.embedForTest = e
+}
+
 func (s *Service) setMeta(key, value string) error {
 	_, err := s.db.Exec(
 		`INSERT INTO meta(key, value) VALUES (?, ?)

@@ -12,6 +12,7 @@ Shipped features registry. Complements [feature-backlog.md](./feature-backlog.md
 
 | Date | ID | Feature | GitHub | Notes |
 |------|-----|---------|--------|-------|
+| 2026-08-07 | `opt-timing-metrics` | Return process timing on search/index | — | duration_ms + search_local timing |
 | 2026-08-07 | `phase5-http-hardening` | Streamable HTTP, auth, benchmarks | — | serve http + healthz + benches |
 | 2026-08-07 | `phase4-web-search` | LangSearch web API + search_web tool | — | search_web + web.Client cache/429 |
 | 2026-07-11 | `phase1-mcp-skeleton` | MCP stdio server, search_file, index_status | — | Initial project scaffolding |

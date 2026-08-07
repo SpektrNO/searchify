@@ -3,6 +3,7 @@ package local
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/spektr/searchify/internal/rank"
 	"github.com/spektr/searchify/internal/search"
@@ -20,6 +21,20 @@ type SearchParams struct {
 	Mode  search.Mode
 }
 
+// LegTiming is best-effort per-leg timing for search_local breakdowns.
+type LegTiming struct {
+	KeywordMs int
+	VectorMs  int
+	RRFMs     int
+}
+
+// SearchOutcome is search hits plus resolved mode and leg timings.
+type SearchOutcome struct {
+	Results []search.Result
+	Mode    search.Mode
+	Timing  LegTiming
+}
+
 func (s *Service) DefaultMode() (search.Mode, error) {
 	count, err := s.VectorCount()
 	if err != nil {
@@ -31,27 +46,57 @@ func (s *Service) DefaultMode() (search.Mode, error) {
 	return search.ModeKeyword, nil
 }
 
-func (s *Service) Search(params SearchParams) ([]search.Result, error) {
+func (s *Service) Search(params SearchParams) (SearchOutcome, error) {
 	limit := normalizeLimit(params.Limit)
 	mode := params.Mode
 	if mode == "" {
 		var err error
 		mode, err = s.DefaultMode()
 		if err != nil {
-			return nil, err
+			return SearchOutcome{}, err
 		}
 	}
 
 	switch mode {
 	case search.ModeKeyword:
-		return s.searchKeyword(params.Query, limit)
+		start := time.Now()
+		results, err := s.searchKeyword(params.Query, limit)
+		if err != nil {
+			return SearchOutcome{}, err
+		}
+		return SearchOutcome{
+			Results: results,
+			Mode:    mode,
+			Timing:  LegTiming{KeywordMs: elapsedMs(start)},
+		}, nil
 	case search.ModeVector:
-		return s.searchVector(params.Query, limit)
+		start := time.Now()
+		results, err := s.searchVector(params.Query, limit)
+		if err != nil {
+			return SearchOutcome{}, err
+		}
+		return SearchOutcome{
+			Results: results,
+			Mode:    mode,
+			Timing:  LegTiming{VectorMs: elapsedMs(start)},
+		}, nil
 	case search.ModeHybrid:
-		return s.searchHybrid(params.Query, limit)
+		results, timing, err := s.searchHybridTimed(params.Query, limit)
+		if err != nil {
+			return SearchOutcome{}, err
+		}
+		return SearchOutcome{Results: results, Mode: mode, Timing: timing}, nil
 	default:
-		return nil, fmt.Errorf("unknown search mode %q", mode)
+		return SearchOutcome{}, fmt.Errorf("unknown search mode %q", mode)
 	}
+}
+
+func elapsedMs(start time.Time) int {
+	ms := int(time.Since(start) / time.Millisecond)
+	if ms < 0 {
+		return 0
+	}
+	return ms
 }
 
 func normalizeLimit(limit int) int {
@@ -186,19 +231,24 @@ func (s *Service) searchVector(query string, limit int) ([]search.Result, error)
 	return s.resultsByChunkIDs(ids, scores)
 }
 
-func (s *Service) searchHybrid(query string, limit int) ([]search.Result, error) {
+func (s *Service) searchHybridTimed(query string, limit int) ([]search.Result, LegTiming, error) {
 	if err := s.requireIndex(); err != nil {
-		return nil, err
+		return nil, LegTiming{}, err
 	}
 
+	kwStart := time.Now()
 	keywordResults, keywordErr := s.searchKeywordCandidates(query, candidatePool)
+	keywordMs := elapsedMs(kwStart)
+
+	vecStart := time.Now()
 	vectorResults, vectorErr := s.searchVectorCandidates(query, candidatePool)
+	vectorMs := elapsedMs(vecStart)
 
 	if len(keywordResults) == 0 && len(vectorResults) == 0 {
 		if keywordErr != nil && vectorErr != nil {
-			return nil, fmt.Errorf("hybrid search failed: keyword: %v; vector: %v", keywordErr, vectorErr)
+			return nil, LegTiming{}, fmt.Errorf("hybrid search failed: keyword: %v; vector: %v", keywordErr, vectorErr)
 		}
-		return nil, fmt.Errorf("no results")
+		return nil, LegTiming{}, fmt.Errorf("no results")
 	}
 
 	lists := make([][]rank.RankedItem, 0, 2)
@@ -209,14 +259,25 @@ func (s *Service) searchHybrid(query string, limit int) ([]search.Result, error)
 		lists = append(lists, vectorResults)
 	}
 
+	rrfStart := time.Now()
 	merged := rank.RRF(lists, rank.DefaultRRFK, limit)
+	rrfMs := elapsedMs(rrfStart)
+
 	scores := make(map[string]float64, len(merged))
 	ids := make([]string, 0, len(merged))
 	for _, item := range merged {
 		ids = append(ids, item.ID)
 		scores[item.ID] = item.Score
 	}
-	return s.resultsByChunkIDs(ids, scores)
+	results, err := s.resultsByChunkIDs(ids, scores)
+	if err != nil {
+		return nil, LegTiming{}, err
+	}
+	return results, LegTiming{
+		KeywordMs: keywordMs,
+		VectorMs:  vectorMs,
+		RRFMs:     rrfMs,
+	}, nil
 }
 
 func (s *Service) searchKeywordCandidates(query string, limit int) ([]rank.RankedItem, error) {

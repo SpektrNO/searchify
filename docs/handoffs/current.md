@@ -1,4 +1,4 @@
 # Handoff: (none active)
 
 **Status:** —  
-No active feature. Backlog phases 1–5 complete. Add new rows to `docs/feature-backlog.md` or start `/spec-only <feature-id>`.
+No active feature. Pick an optional item from `docs/feature-backlog.md` section F, e.g. `/spec-only opt-remove-path`.

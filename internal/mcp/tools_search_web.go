@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spektr/searchify/internal/search"
@@ -18,15 +19,17 @@ type searchWebInput struct {
 }
 
 type searchWebOutput struct {
-	Count   int             `json:"count"`
-	Results []search.Result `json:"results"`
+	Count      int             `json:"count"`
+	Results    []search.Result `json:"results"`
+	DurationMs int             `json:"duration_ms"`
 }
 
 func (s *Server) searchWeb(ctx context.Context, req *mcp.CallToolRequest, input searchWebInput) (*mcp.CallToolResult, searchWebOutput, error) {
 	_ = req
+	start := time.Now()
 
 	if s.web == nil || !s.web.Configured() {
-		return toolErrorResult("LANGSEARCH_API_KEY is required for search_web"), searchWebOutput{}, nil
+		return toolErrorResult("LANGSEARCH_API_KEY is required for search_web"), searchWebOutput{DurationMs: elapsedMs(start)}, nil
 	}
 
 	summary := true
@@ -41,11 +44,14 @@ func (s *Server) searchWeb(ctx context.Context, req *mcp.CallToolRequest, input 
 		Summary:   summary,
 	})
 	if err != nil {
-		return toolErrorResult("web search failed: %v", err), searchWebOutput{}, nil
+		return toolErrorResult("web search failed: %v", err), searchWebOutput{DurationMs: elapsedMs(start)}, nil
 	}
 
+	duration := elapsedMs(start)
+	logToolTiming("search_web", duration)
 	return nil, searchWebOutput{
-		Count:   len(results),
-		Results: results,
+		Count:      len(results),
+		Results:    results,
+		DurationMs: duration,
 	}, nil
 }
