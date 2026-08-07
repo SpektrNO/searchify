@@ -202,6 +202,17 @@ func (c *Config) allowAbsolute(abs string) (string, error) {
 	return "", fmt.Errorf("path %q is outside allowed roots", abs)
 }
 
+// UnderAnyRoot reports whether abs lies under at least one configured root.
+func (c *Config) UnderAnyRoot(abs string) bool {
+	abs = filepath.Clean(abs)
+	for _, root := range c.Roots {
+		if pathWithinRoot(abs, root) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Config) relativeCandidates(rel string, requireExist bool) ([]string, error) {
 	var matches []string
 	seen := make(map[string]struct{})

@@ -151,7 +151,7 @@ Index or refresh files under one or more paths (must be under `SEARCHIFY_ROOTS`)
 }
 ```
 
-Re-indexing does **not** remove deleted files from the index. Use `remove_paths` (or `searchify remove`) for that.
+Re-indexing does **not** remove deleted files from the index. Use `remove_paths` for known deletes, or `index_prune` to reconcile orphans vs disk.
 
 ### `remove_paths`
 
@@ -162,6 +162,19 @@ Remove files or directories from the local index (FTS chunks, vectors, and `file
   "paths": ["/abs/path/to/deleted.md", "docs/old"]
 }
 ```
+
+### `index_prune`
+
+Reconcile the index with disk: drop rows for files that no longer exist, and for indexed paths outside current `SEARCHIFY_ROOTS`. Optional `paths` limits the scan; `dry_run` reports without deleting. Prefer `dry_run` first if mounts may be flaky.
+
+```json
+{
+  "paths": [],
+  "dry_run": true
+}
+```
+
+CLI: `searchify prune [--dry-run] [paths...]`
 
 ### `search_local`
 

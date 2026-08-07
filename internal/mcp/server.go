@@ -12,7 +12,7 @@ import (
 
 const (
 	serverName    = "searchify"
-	serverVersion = "0.6.0"
+	serverVersion = "0.6.1"
 )
 
 type Server struct {
@@ -75,6 +75,11 @@ func (s *Server) registerTools() {
 		Name:        "remove_paths",
 		Description: "Remove files or directories from the local index (FTS + vectors). Paths need not exist on disk.",
 	}, s.removePaths)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "index_prune",
+		Description: "Drop index rows for files missing on disk or outside SEARCHIFY_ROOTS. Optional dry_run.",
+	}, s.indexPrune)
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name:        "index_status",

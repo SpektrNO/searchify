@@ -30,6 +30,7 @@ Hybrid text-search MCP server in Go.
 | `index_status` | 1 | Index readiness and config |
 | `index_paths` | 2 | Build/update local index |
 | `remove_paths` | opt | Remove files/dirs from index (FTS + vectors) |
+| `index_prune` | opt | Drop orphans missing on disk / outside roots |
 | `search_local` | 2–3 | Query persisted index |
 | `search_web` | 4 | Internet search via LangSearch |
 
@@ -60,7 +61,7 @@ Hybrid text-search MCP server in Go.
 - Timeouts: `ReadHeaderTimeout` 5s; ~60s request budget
 - TLS: not terminated in-process — put a reverse proxy in front when exposing beyond localhost (see backlog `opt-tls-reverse-proxy`)
 - App integration: MCP Streamable HTTP plus REST `POST /v1/search` + `POST /v1/index` (same Bearer token); optional REST remove/status later
-- Deletions: MCP/CLI `remove_paths` / `searchify remove` (`opt-remove-path`); optional orphan prune (`opt-index-prune`)
+- Deletions: MCP/CLI `remove_paths` / `searchify remove`; reconcile orphans with `index_prune` / `searchify prune` (`opt-index-prune`)
 - Auto-index: optional watch/rescan (`opt-auto-index-watch`)
 - Path UX: relative paths resolve via `SEARCHIFY_PATH_BASE` then roots (no process CWD); absolute paths must stay under roots
 - File types: richer extractors beyond the extension allowlist (`opt-richer-file-types`)
