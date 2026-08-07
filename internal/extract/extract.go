@@ -23,14 +23,7 @@ type Extractor interface {
 type Options struct {
 	OCREnabled bool
 	OCRLang    string // e.g. "eng"; used when OCREnabled
-}
-
-// Registry maps extension → Extractor. First registered wins.
-type Registry struct {
-	mu      sync.RWMutex
-	byExt   map[string]Extractor
-	order   []string
-	opts    Options
+	TextOnly   bool   // passthrough text/code only (skip PDF/Office/HTML parsers)
 }
 
 // NewRegistry builds the default extractors for the given options.
@@ -43,6 +36,9 @@ func NewRegistry(opts Options) *Registry {
 		opts:  opts,
 	}
 	reg.MustRegister(passthroughExtractor{})
+	if opts.TextOnly {
+		return reg
+	}
 	reg.MustRegister(htmlExtractor{})
 	reg.MustRegister(pdfExtractor{opts: opts})
 	reg.MustRegister(docxExtractor{})
@@ -55,6 +51,14 @@ func NewRegistry(opts Options) *Registry {
 	reg.MustRegister(rtfExtractor{})
 	reg.MustRegister(emlExtractor{})
 	return reg
+}
+
+// Registry maps extension → Extractor. First registered wins.
+type Registry struct {
+	mu    sync.RWMutex
+	byExt map[string]Extractor
+	order []string
+	opts  Options
 }
 
 // MustRegister panics on duplicate extension (programming error).

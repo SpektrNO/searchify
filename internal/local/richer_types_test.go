@@ -133,6 +133,41 @@ func TestMaxFileBytesSkip(t *testing.T) {
 	}
 }
 
+func TestTextOnlySkipsPDF(t *testing.T) {
+	root := t.TempDir()
+	md := filepath.Join(root, "a.md")
+	if err := os.WriteFile(md, []byte("plain text only please\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pdf := filepath.Join(root, "b.pdf")
+	if err := os.WriteFile(pdf, []byte("%PDF-1.1 fake"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Roots:            []string{root},
+		IndexDir:         filepath.Join(t.TempDir(), "index"),
+		EmbedModel:       "stub",
+		SkipEmbed:        true,
+		TextOnly:         true,
+		MaxFileBytes:     1024 * 1024,
+		MaxExtractBytes:  1024 * 1024,
+		MaxChunksPerFile: 64,
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+
+	report, err := svc.IndexPaths([]string{root}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Indexed != 1 {
+		t.Fatalf("indexed=%d want 1 (md only); msgs=%v", report.Indexed, report.Messages)
+	}
+}
+
 func richerMinimalDOCX(phrase string) []byte {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)

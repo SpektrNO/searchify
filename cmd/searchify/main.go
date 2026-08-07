@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -126,8 +128,9 @@ func runIndex(args []string) {
 	fs := flag.NewFlagSet("index", flag.ExitOnError)
 	force := fs.Bool("force", false, "re-index files even when metadata is unchanged")
 	skipEmbed := fs.Bool("skip-embed", false, "FTS/keyword only; do not load ONNX embedder (low RAM)")
+	textOnly := fs.Bool("text-only", false, "index passthrough text/code only (skip PDF/Office/HTML parsers)")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: searchify index [--force] [--skip-embed] <path...>")
+		fmt.Fprintln(os.Stderr, "usage: searchify index [--force] [--skip-embed] [--text-only] <path...>")
 		fmt.Fprintln(os.Stderr, "  Flags may appear before or after paths.")
 	}
 	args = rearrangeFlags(args, nil)
@@ -149,6 +152,19 @@ func runIndex(args []string) {
 	if *skipEmbed {
 		cfg.SkipEmbed = true
 	}
+	if *textOnly {
+		cfg.TextOnly = true
+	}
+
+	dbPath := filepath.Join(cfg.IndexDir, "index.db")
+	if st, err := os.Stat(dbPath); err == nil {
+		fmt.Fprintf(os.Stderr, "index: opening %s (%.1f MiB on disk)\n", dbPath, float64(st.Size())/(1024*1024))
+		if st.Size() > 512*1024*1024 {
+			fmt.Fprintln(os.Stderr, "index: WARNING — large existing DB; for a low-RAM FTS rebuild set a fresh SEARCHIFY_INDEX_DIR")
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "index: new DB at %s\n", dbPath)
+	}
 
 	svc, err := local.NewService(cfg)
 	if err != nil {
@@ -164,26 +180,30 @@ func runIndex(args []string) {
 	case cfg.UseInProcessEmbed():
 		fmt.Fprintln(os.Stderr, "index: SEARCHIFY_EMBED_BACKEND=onnx — in-process embeds (high RSS risk on large corpora)")
 	}
+	if cfg.TextOnly {
+		fmt.Fprintln(os.Stderr, "index: --text-only / SEARCHIFY_TEXT_ONLY — PDF/Office/HTML extractors disabled")
+	}
 
 	start := time.Now()
 	report, err := svc.IndexPathsOpts(fs.Args(), local.IndexPathsOptions{
 		Force: *force,
 		Progress: func(p local.IndexProgress) {
+			heapMiB := memHeapMiB()
 			switch p.Status {
 			case "scan":
-				fmt.Fprintf(os.Stderr, "index: %d indexable file(s)\n", p.Total)
+				fmt.Fprintf(os.Stderr, "index: %d indexable file(s) (heap≈%d MiB)\n", p.Total, heapMiB)
 			case "start":
-				fmt.Fprintf(os.Stderr, "[%d/%d] indexing %s\n", p.Current, p.Total, p.Path)
+				fmt.Fprintf(os.Stderr, "[%d/%d] indexing %s (heap≈%d MiB)\n", p.Current, p.Total, p.Path, heapMiB)
 			case "skip":
 				fmt.Fprintf(os.Stderr, "[%d/%d] skip %s\n", p.Current, p.Total, p.Path)
 			case "indexed":
-				fmt.Fprintf(os.Stderr, "[%d/%d] ok (new) %s\n", p.Current, p.Total, p.Path)
+				fmt.Fprintf(os.Stderr, "[%d/%d] ok (new) %s (heap≈%d MiB)\n", p.Current, p.Total, p.Path, heapMiB)
 			case "updated":
-				fmt.Fprintf(os.Stderr, "[%d/%d] ok (updated) %s\n", p.Current, p.Total, p.Path)
+				fmt.Fprintf(os.Stderr, "[%d/%d] ok (updated) %s (heap≈%d MiB)\n", p.Current, p.Total, p.Path, heapMiB)
 			case "empty":
 				fmt.Fprintf(os.Stderr, "[%d/%d] empty %s\n", p.Current, p.Total, p.Path)
 			case "error":
-				fmt.Fprintf(os.Stderr, "[%d/%d] error %s\n", p.Current, p.Total, p.Path)
+				fmt.Fprintf(os.Stderr, "[%d/%d] error %s (heap≈%d MiB)\n", p.Current, p.Total, p.Path, heapMiB)
 			}
 		},
 	})
@@ -201,6 +221,12 @@ func runIndex(args []string) {
 	if report.Errors > 0 {
 		os.Exit(1)
 	}
+}
+
+func memHeapMiB() uint64 {
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	return ms.HeapAlloc / (1024 * 1024)
 }
 
 func runEmbed(args []string) {
@@ -368,7 +394,7 @@ func printUsage() {
 
 usage:
   searchify mcp stdio          Run MCP server over stdin/stdout
-  searchify index [--force] [--skip-embed] <paths...>
+  searchify index [--force] [--skip-embed] [--text-only] <paths...>
                                Build or refresh local keyword index (+ embed worker by default)
   searchify embed [--force] [--file path] [paths...]
                                Backfill chunk vectors (in-process ONNX; prefer after --skip-embed)
@@ -393,6 +419,7 @@ environment:
   SEARCHIFY_EMBED_BATCH        Embedding batch size (default 1)
   SEARCHIFY_EMBED_BACKEND      none|onnx|process (default process: spawn embed worker)
   SEARCHIFY_SKIP_EMBED         1=FTS only, skip ONNX (low RAM; same idea as backend=none)
+  SEARCHIFY_TEXT_ONLY          1=index text/code extensions only (no PDF/Office/HTML)
   SEARCHIFY_EMBED_RELOAD       Close embedder each file when backend=onnx (default on)
   SEARCHIFY_EXTRACT_TIMEOUT    Per-file extract deadline (default 30s)
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank

@@ -49,6 +49,10 @@ func NewService(cfg *config.Config) (*Service, error) {
 		return nil, fmt.Errorf("open index db: %w", err)
 	}
 	db.SetMaxOpenConns(1)
+	if err := configureSQLite(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 
 	svc := &Service{
 		cfg: cfg,
@@ -56,6 +60,7 @@ func NewService(cfg *config.Config) (*Service, error) {
 		extract: extract.NewRegistry(extract.Options{
 			OCREnabled: cfg.OCREnabled,
 			OCRLang:    cfg.OCRLang,
+			TextOnly:   cfg.TextOnly,
 		}),
 	}
 	if err := svc.migrate(); err != nil {
@@ -63,6 +68,23 @@ func NewService(cfg *config.Config) (*Service, error) {
 		return nil, err
 	}
 	return svc, nil
+}
+
+func configureSQLite(db *sql.DB) error {
+	// Cap cache and disable mmap so a large existing index.db cannot pin tens of GB into RSS.
+	for _, pragma := range []string{
+		`PRAGMA busy_timeout=5000`,
+		`PRAGMA journal_mode=WAL`,
+		`PRAGMA synchronous=NORMAL`,
+		`PRAGMA temp_store=FILE`,
+		`PRAGMA mmap_size=0`,
+		`PRAGMA cache_size=-65536`, // kibibytes when negative → ~64 MiB
+	} {
+		if _, err := db.Exec(pragma); err != nil {
+			return fmt.Errorf("sqlite %s: %w", pragma, err)
+		}
+	}
+	return nil
 }
 
 func (s *Service) Close() error {

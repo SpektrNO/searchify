@@ -30,6 +30,7 @@ const (
 	EnvSkipEmbed       = "SEARCHIFY_SKIP_EMBED"
 	EnvEmbedReload     = "SEARCHIFY_EMBED_RELOAD"
 	EnvEmbedBackend    = "SEARCHIFY_EMBED_BACKEND"
+	EnvTextOnly        = "SEARCHIFY_TEXT_ONLY"
 
 	defaultEmbedModel      = "minilm-l6-v2"
 	defaultHTTPAddr        = ":8080"
@@ -73,6 +74,7 @@ type Config struct {
 	SkipEmbed        bool  // FTS-only index; skip ONNX (huge RAM savings)
 	EmbedReload      bool  // close/reopen embedder after each file to drop native RSS
 	EmbedBackend     EmbedBackend
+	TextOnly         bool // only passthrough text/code extensions (no PDF/Office/HTML parsers)
 }
 
 // EffectiveEmbedBackend resolves SkipEmbed and empty EmbedBackend.
@@ -179,6 +181,7 @@ func Load() (*Config, error) {
 		// Default ON: native ONNX RSS is not returned to the OS without Close.
 		EmbedReload:  parseBoolEnvDefaultTrue(os.Getenv(EnvEmbedReload)),
 		EmbedBackend: backend,
+		TextOnly:     parseBoolEnv(os.Getenv(EnvTextOnly)),
 	}, nil
 }
 

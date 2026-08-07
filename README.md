@@ -160,6 +160,11 @@ searchify index /path/to/corpus --skip-embed
 
 # Confirm on stderr: "keyword-only — ONNX/embedder will NOT load"
 # If you instead see "EMBED_BACKEND=process" or "onnx", skip-embed did not apply.
+
+# If RAM still spikes immediately, use a fresh index dir + text-only (no PDF/Office parsers):
+set SEARCHIFY_INDEX_DIR=C:\temp\searchify-fts
+searchify index --skip-embed --text-only /path/to/corpus
+# stderr also prints index.db size and per-file heap≈MiB to show which file blows up
 ```
 
 Or set `SEARCHIFY_SKIP_EMBED=1` / `SEARCHIFY_EMBED_BACKEND=none` (no quotes inside the value in CMD).
@@ -218,6 +223,7 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_EMBED_BATCH` | no | ONNX batch size (default `1`) |
 | `SEARCHIFY_EMBED_BACKEND` | no | `process` (default: spawn `searchify embed` per file), `onnx` (in-process), `none` (FTS only) |
 | `SEARCHIFY_SKIP_EMBED` | no | `1`/`true` — FTS/keyword index only; **do not load ONNX** (same idea as `EMBED_BACKEND=none`) |
+| `SEARCHIFY_TEXT_ONLY` | no | `1`/`true` — index passthrough text/code only (disables PDF/Office/HTML extractors; helps low-RAM ingest) |
 | `SEARCHIFY_EMBED_RELOAD` | no | Close/reopen embedder after each file when `backend=onnx` (default **on**; set `0` to disable) |
 | `SEARCHIFY_EXTRACT_TIMEOUT` | no | Per-file extract deadline (Go duration, default `30s`) |
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
