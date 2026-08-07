@@ -155,6 +155,8 @@ func (s *Service) Status() (search.IndexStatus, error) {
 		VectorChunkCount: int(vectorCount),
 		EmbedModel:       embedModel,
 		VectorReady:      vectorReady,
+		OCREnabled:       s.cfg.OCREnabled,
+		IndexExtensions:  s.extract.Extensions(),
 		Ready:            chunkCount > 0,
 	}
 	if indexedAt != "" {

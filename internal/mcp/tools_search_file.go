@@ -33,9 +33,12 @@ func (s *Server) searchFile(ctx context.Context, req *mcp.CallToolRequest, input
 	}
 
 	results, err := file.Search(allowed, file.SearchOptions{
-		Query:         input.Query,
-		Limit:         input.Limit,
-		CaseSensitive: input.CaseSensitive,
+		Query:          input.Query,
+		Limit:          input.Limit,
+		CaseSensitive:  input.CaseSensitive,
+		OCREnabled:     s.cfg.OCREnabled,
+		OCRLang:        s.cfg.OCRLang,
+		ExtractTimeout: s.cfg.ExtractTimeout,
 	})
 	if err != nil {
 		return toolErrorResult("search failed: %v", err), searchFileOutput{DurationMs: elapsedMs(start)}, nil

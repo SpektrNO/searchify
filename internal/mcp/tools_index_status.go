@@ -24,6 +24,8 @@ type indexStatusPayload struct {
 	LangSearchConfigured bool     `json:"langsearch_configured"`
 	WatchEnabled         bool     `json:"watch_enabled"`
 	WatchPaths           []string `json:"watch_paths,omitempty"`
+	OCREnabled           bool     `json:"ocr_enabled"`
+	IndexExtensions      []string `json:"index_extensions,omitempty"`
 	IndexedAt            *string  `json:"indexed_at"`
 	Ready                bool     `json:"ready"`
 	Message              string   `json:"message,omitempty"`
@@ -55,6 +57,8 @@ func (s *Server) indexStatus(ctx context.Context, req *mcp.CallToolRequest, _ in
 		LangSearchConfigured: langConfigured,
 		WatchEnabled:         len(s.cfg.WatchPaths) > 0,
 		WatchPaths:           append([]string(nil), s.cfg.WatchPaths...),
+		OCREnabled:           status.OCREnabled,
+		IndexExtensions:      append([]string(nil), status.IndexExtensions...),
 		IndexedAt:            status.IndexedAt,
 		Ready:                status.Ready,
 		Message:              msg,

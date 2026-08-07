@@ -263,6 +263,10 @@ environment:
   SEARCHIFY_WATCH_PATHS        Optional auto-index watch paths (under roots)
   SEARCHIFY_WATCH_DEBOUNCE     Watch debounce duration (default 1s)
   SEARCHIFY_WATCH_RESCAN       Optional periodic rescan (e.g. 5m; empty=off)
+  SEARCHIFY_OCR                Enable OCR for images / scanned PDFs (1/true/on)
+  SEARCHIFY_OCR_LANG           Tesseract language (default eng)
+  SEARCHIFY_MAX_FILE_BYTES     Skip files larger than this (default 33554432)
+  SEARCHIFY_EXTRACT_TIMEOUT    Per-file extract deadline (default 30s)
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank
   SEARCHIFY_HTTP_TOKEN         Required Bearer token for HTTP transport
   SEARCHIFY_HTTP_ADDR          Default listen address for serve http (:8080)
