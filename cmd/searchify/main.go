@@ -83,6 +83,7 @@ func runServe(args []string) {
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: searchify serve http [--addr HOST:PORT] [--path /mcp]")
 	}
+	args = rearrangeFlags(args, map[string]struct{}{"addr": {}, "path": {}})
 	_ = fs.Parse(args)
 
 	if fs.NArg() != 1 || fs.Arg(0) != "http" {
@@ -127,8 +128,13 @@ func runIndex(args []string) {
 	skipEmbed := fs.Bool("skip-embed", false, "FTS/keyword only; do not load ONNX embedder (low RAM)")
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: searchify index [--force] [--skip-embed] <path...>")
+		fmt.Fprintln(os.Stderr, "  Flags may appear before or after paths.")
 	}
+	args = rearrangeFlags(args, nil)
 	if err := fs.Parse(args); err != nil {
+		log.Fatal(err)
+	}
+	if err := rejectDanglingFlags(fs.Args()); err != nil {
 		log.Fatal(err)
 	}
 	if fs.NArg() == 0 {
@@ -152,9 +158,9 @@ func runIndex(args []string) {
 
 	switch {
 	case !cfg.WantVectors():
-		fmt.Fprintln(os.Stderr, "index: keyword-only (SEARCHIFY_SKIP_EMBED / SEARCHIFY_EMBED_BACKEND=none); no ONNX")
+		fmt.Fprintln(os.Stderr, "index: keyword-only — ONNX/embedder will NOT load (SEARCHIFY_SKIP_EMBED / --skip-embed / SEARCHIFY_EMBED_BACKEND=none)")
 	case cfg.UseProcessEmbed():
-		fmt.Fprintln(os.Stderr, "index: SEARCHIFY_EMBED_BACKEND=process — FTS then short-lived embed worker per file")
+		fmt.Fprintln(os.Stderr, "index: SEARCHIFY_EMBED_BACKEND=process — FTS then short-lived embed worker per file (child may use multi-GB RAM)")
 	case cfg.UseInProcessEmbed():
 		fmt.Fprintln(os.Stderr, "index: SEARCHIFY_EMBED_BACKEND=onnx — in-process embeds (high RSS risk on large corpora)")
 	}
@@ -204,8 +210,13 @@ func runEmbed(args []string) {
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: searchify embed [--force] [--file path] [path...]")
 		fmt.Fprintln(os.Stderr, "  With no paths, embeds all indexed files missing vectors.")
+		fmt.Fprintln(os.Stderr, "  Flags may appear before or after paths.")
 	}
+	args = rearrangeFlags(args, map[string]struct{}{"file": {}})
 	if err := fs.Parse(args); err != nil {
+		log.Fatal(err)
+	}
+	if err := rejectDanglingFlags(fs.Args()); err != nil {
 		log.Fatal(err)
 	}
 
@@ -267,7 +278,11 @@ func runRemove(args []string) {
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: searchify remove <path...>")
 	}
+	args = rearrangeFlags(args, nil)
 	if err := fs.Parse(args); err != nil {
+		log.Fatal(err)
+	}
+	if err := rejectDanglingFlags(fs.Args()); err != nil {
 		log.Fatal(err)
 	}
 	if fs.NArg() == 0 {
@@ -309,8 +324,13 @@ func runPrune(args []string) {
 	dryRun := fs.Bool("dry-run", false, "report orphans without deleting")
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: searchify prune [--dry-run] [path...]")
+		fmt.Fprintln(os.Stderr, "  Flags may appear before or after paths.")
 	}
+	args = rearrangeFlags(args, nil)
 	if err := fs.Parse(args); err != nil {
+		log.Fatal(err)
+	}
+	if err := rejectDanglingFlags(fs.Args()); err != nil {
 		log.Fatal(err)
 	}
 

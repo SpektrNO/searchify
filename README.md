@@ -154,17 +154,15 @@ CLI `index` prints progress on **stderr** (`[i/N] indexing …`) so long catalog
 
 ```bash
 # FTS only (lowest RAM; use mode=keyword)
+# Put flags BEFORE or AFTER paths — both work:
 searchify index --skip-embed /path/to/corpus
+searchify index /path/to/corpus --skip-embed
 
-# Later: backfill vectors in short-lived processes
-searchify embed /path/to/corpus
-
-# Legacy: in-process embeds during index (high RSS risk)
-set SEARCHIFY_EMBED_BACKEND=onnx
-searchify index /path/to/corpus
+# Confirm on stderr: "keyword-only — ONNX/embedder will NOT load"
+# If you instead see "EMBED_BACKEND=process" or "onnx", skip-embed did not apply.
 ```
 
-Or set `SEARCHIFY_SKIP_EMBED=1` / `SEARCHIFY_EMBED_BACKEND=none`. Hybrid/vector search needs vectors; `mode=keyword` works after FTS-only index.
+Or set `SEARCHIFY_SKIP_EMBED=1` / `SEARCHIFY_EMBED_BACKEND=none` (no quotes inside the value in CMD).
 
 ### Watch vs serve
 
