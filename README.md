@@ -81,6 +81,8 @@ export SEARCHIFY_HTTP_TOKEN="dev-secret"
 # GET http://127.0.0.1:8080/healthz → ok
 ```
 
+`serve http` (and `mcp stdio`) **only serve the API**. They do **not** crawl roots or refresh the index unless you set `SEARCHIFY_WATCH_PATHS` (see [Indexing lifecycle](#indexing-lifecycle)).
+
 Remote MCP config (illustrative; Cursor versions differ — prefer stdio for local):
 
 ```json
@@ -130,6 +132,38 @@ curl -sS "http://127.0.0.1:8080/v1/stats" \
 | `POST` | `/v1/index` | `paths`, optional `force` |
 | `GET` | `/v1/files` | optional `prefix` query (exact path or directory prefix) |
 | `GET` | `/v1/stats` | — (`file_count`, `folder_count`, `vector_chunk_count`, `total_bytes`, `last_index_change`) |
+
+## Indexing lifecycle
+
+Typical flow:
+
+1. **Index once (or on demand)** — CLI `searchify index <paths…>` or REST `POST /v1/index` / MCP `index_paths`.
+2. **Serve** — `searchify serve http` or `mcp stdio` answers search/status from the existing SQLite index.
+3. **Optional live updates** — set `SEARCHIFY_WATCH_PATHS` so the running server watches those paths (must stay under `SEARCHIFY_ROOTS`).
+
+### What happens on re-index
+
+- Unchanged files (same size + mtime as last index) are **skipped** (`skipped=` in the CLI summary).
+- New or modified files are extracted and indexed/updated.
+- `--force` (CLI) or `"force": true` (REST/MCP) re-processes every matching file even when metadata is unchanged.
+- Deletes are **not** inferred by a normal index pass. Use `searchify remove` / `remove_paths`, or `searchify prune` / `index_prune`, for orphans.
+
+CLI `index` prints progress on **stderr** (`[i/N] indexing …`) so long catalogues are distinguishable from a hang; the final `indexed=` line is on stdout.
+
+### Watch vs serve
+
+| Mode | Behavior |
+|------|----------|
+| `serve http` / `mcp stdio` alone | Serves only; index stays as-of the last `index` / `/v1/index` |
+| + `SEARCHIFY_WATCH_PATHS` | fsnotify: create/write → reindex (debounced); remove/rename → drop from index |
+| + `SEARCHIFY_WATCH_RESCAN` (e.g. `5m`) | Periodic full re-index of watch paths — useful when fsnotify is flaky (OneDrive, some network mounts) |
+
+Without `SEARCHIFY_WATCH_PATHS`, nothing is scanned routinely after serve starts.
+
+### Windows / WSL note
+
+- Native Windows: set env vars in the same CMD/PowerShell session as `searchify.exe` (CMD `set` must not put quotes into the value).
+- From WSL2, `localhost` usually is **not** the Windows host. Prefer the default gateway (`ip route show default` → gateway IP) or the Windows LAN IP, e.g. `curl http://172.x.x.x:8080/healthz`. Do not use the `nameserver` from `/etc/resolv.conf` when it is `10.255.255.254`.
 
 ## Index and search (CLI)
 
