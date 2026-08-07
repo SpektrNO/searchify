@@ -3,6 +3,7 @@ package local
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -119,6 +120,34 @@ func (s *Service) pruneCandidates(paths []string, report *PruneReport) ([]string
 		}
 	}
 	return out, nil
+}
+
+func (s *Service) ListIndexedFiles(prefix string) ([]string, error) {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		return s.listAllIndexedPaths()
+	}
+	prefix = filepath.Clean(prefix)
+	like := escapeLike(prefix) + string(filepath.Separator) + "%"
+	rows, err := s.db.Query(
+		`SELECT path FROM files WHERE path = ? OR path LIKE ? ESCAPE '\' ORDER BY path`,
+		prefix,
+		like,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		out = append(out, path)
+	}
+	return out, rows.Err()
 }
 
 func (s *Service) listAllIndexedPaths() ([]string, error) {

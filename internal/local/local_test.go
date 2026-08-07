@@ -118,6 +118,50 @@ func TestIndexAndSearch(t *testing.T) {
 	}
 }
 
+func TestListIndexedFiles(t *testing.T) {
+	root := t.TempDir()
+	a := filepath.Join(root, "a.md")
+	sub := filepath.Join(root, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	b := filepath.Join(sub, "b.md")
+	for _, p := range []string{a, b} {
+		if err := os.WriteFile(p, []byte("hello\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := &config.Config{
+		Roots:      []string{root},
+		IndexDir:   filepath.Join(t.TempDir(), "index"),
+		EmbedModel: "stub",
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+	svc.embedForTest = &stubEmbedder{}
+	if _, err := svc.IndexPaths([]string{root}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	all, err := svc.ListIndexedFiles("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("expected 2 paths, got %v", all)
+	}
+	under, err := svc.ListIndexedFiles(sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(under) != 1 || under[0] != b {
+		t.Fatalf("expected only %s, got %v", b, under)
+	}
+}
+
 func TestHybridFindsParaphrase(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "realms.md")

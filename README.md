@@ -31,7 +31,7 @@ Cursor shortcuts: `/spec-only`, `/implement-handoff`, `/spec-and-implement`, `/l
 
 Phase 5 (HTTP + hardening):
 
-- `searchify serve http` — Streamable HTTP MCP with Bearer auth, timeouts, `/healthz`, plus REST `POST /v1/search` and `POST /v1/index`
+- `searchify serve http` — Streamable HTTP MCP with Bearer auth, timeouts, `/healthz`, plus REST `POST /v1/search`, `POST /v1/index`, `GET /v1/files`
 - `search_web` / `search_local` / `search_file` / `index_*` — unchanged over stdio and HTTP
 - Benchmarks: `make bench` (keyword + hybrid, report-only)
 
@@ -110,12 +110,17 @@ curl -sS -X POST http://127.0.0.1:8080/v1/search \
   -H "Authorization: Bearer dev-secret" \
   -H "Content-Type: application/json" \
   -d '{"query":"path allowlist","mode":"hybrid","limit":10}'
+
+# List indexed file paths (optional ?prefix=)
+curl -sS "http://127.0.0.1:8080/v1/files" \
+  -H "Authorization: Bearer dev-secret"
 ```
 
-| Method | Path | Body |
+| Method | Path | Body / query |
 |--------|------|------|
 | `POST` | `/v1/search` | `query`, optional `limit`, `mode`, `rerank` |
 | `POST` | `/v1/index` | `paths`, optional `force` |
+| `GET` | `/v1/files` | optional `prefix` query (exact path or directory prefix) |
 
 ## Index and search (CLI)
 
@@ -253,6 +258,16 @@ Set `SEARCHIFY_PATH_BASE` to your project root in MCP env when using repo-relati
 ### `index_status`
 
 Returns configured roots, index directory, vector readiness, and `langsearch_configured`.
+
+### `list_indexed_files`
+
+Returns paths currently stored in the local index. Optional `prefix` limits to that path and its indexed descendants.
+
+```json
+{
+  "prefix": ""
+}
+```
 
 ## Project layout
 
