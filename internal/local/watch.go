@@ -143,12 +143,12 @@ func (w *IndexWatcher) handleEvent(watcher *fsnotify.Watcher, ev fsnotify.Event)
 			_ = w.addRecursive(watcher, path)
 			return
 		}
-		if shouldIndexFile(path) {
+		if w.svc.extract.HasExtension(path) {
 			w.schedule(path, opIndex)
 		}
 	case ev.Has(fsnotify.Write) || ev.Has(fsnotify.Chmod):
 		// Ignore chmod-only noise if also not a write; still debounce writes.
-		if ev.Has(fsnotify.Write) && shouldIndexFile(path) {
+		if ev.Has(fsnotify.Write) && w.svc.extract.HasExtension(path) {
 			w.schedule(path, opIndex)
 		}
 	case ev.Has(fsnotify.Remove) || ev.Has(fsnotify.Rename):
@@ -200,7 +200,7 @@ func (w *IndexWatcher) fire(path string) {
 		if _, err := os.Stat(path); err != nil {
 			return
 		}
-		if !shouldIndexFile(path) {
+		if !w.svc.extract.HasExtension(path) {
 			return
 		}
 		report, err := w.svc.IndexPaths([]string{path}, false)

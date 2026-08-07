@@ -1,28 +1,26 @@
 package local
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spektr/searchify/internal/config"
+	"github.com/spektr/searchify/internal/extract"
 )
-
-const maxFileBytes = 2 * 1024 * 1024
-
-var indexExtensions = map[string]struct{}{
-	".md": {}, ".txt": {}, ".go": {}, ".ts": {}, ".tsx": {}, ".js": {},
-	".json": {}, ".yaml": {}, ".yml": {}, ".sql": {}, ".sh": {}, ".py": {}, ".rs": {},
-}
 
 var skipDirNames = map[string]struct{}{
 	".git": {}, ".cursor": {}, "node_modules": {}, "vendor": {}, "bin": {}, ".searchify": {},
 }
 
-func collectIndexablePaths(cfg *config.Config, roots []string) ([]string, []string) {
+func collectIndexablePaths(cfg *config.Config, reg *extract.Registry, roots []string) ([]string, []string) {
 	var files []string
 	var messages []string
+	maxBytes := cfg.MaxFileBytes
+	if maxBytes <= 0 {
+		maxBytes = 32 * 1024 * 1024
+	}
 
 	for _, root := range roots {
 		allowed, err := cfg.AllowedPath(root)
@@ -38,8 +36,12 @@ func collectIndexablePaths(cfg *config.Config, roots []string) ([]string, []stri
 		}
 
 		if !info.IsDir() {
-			if shouldIndexFile(allowed) {
-				files = append(files, allowed)
+			if reg.HasExtension(allowed) {
+				if info.Size() > maxBytes {
+					messages = append(messages, filepath.Clean(allowed)+": skipped (file larger than "+formatByteLimit(maxBytes)+")")
+				} else {
+					files = append(files, filepath.Clean(allowed))
+				}
 			}
 			continue
 		}
@@ -55,7 +57,7 @@ func collectIndexablePaths(cfg *config.Config, roots []string) ([]string, []stri
 				}
 				return nil
 			}
-			if !shouldIndexFile(path) {
+			if !reg.HasExtension(path) {
 				return nil
 			}
 			stat, err := d.Info()
@@ -63,8 +65,8 @@ func collectIndexablePaths(cfg *config.Config, roots []string) ([]string, []stri
 				messages = append(messages, err.Error())
 				return nil
 			}
-			if stat.Size() > maxFileBytes {
-				messages = append(messages, filepath.Clean(path)+": skipped (file larger than 2MB)")
+			if stat.Size() > maxBytes {
+				messages = append(messages, filepath.Clean(path)+": skipped (file larger than "+formatByteLimit(maxBytes)+")")
 				return nil
 			}
 			files = append(files, filepath.Clean(path))
@@ -83,8 +85,10 @@ func shouldSkipDir(name string) bool {
 	return ok
 }
 
-func shouldIndexFile(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
-	_, ok := indexExtensions[ext]
-	return ok
+func formatByteLimit(n int64) string {
+	const miB = 1024 * 1024
+	if n%(miB) == 0 && n >= miB {
+		return fmt.Sprintf("%dMB", n/miB)
+	}
+	return fmt.Sprintf("%d bytes", n)
 }

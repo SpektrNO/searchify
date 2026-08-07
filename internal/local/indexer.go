@@ -1,17 +1,28 @@
 package local
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/spektr/searchify/internal/extract"
 )
 
 const maxIndexMessages = 20
 
 func (s *Service) IndexPaths(paths []string, force bool) (IndexReport, error) {
 	report := IndexReport{}
-	files, walkMessages := collectIndexablePaths(s.cfg, paths)
+	files, walkMessages := collectIndexablePaths(s.cfg, s.extract, paths)
 	report.Messages = append(report.Messages, walkMessages...)
+
+	timeout := s.cfg.ExtractTimeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
 
 	for _, path := range files {
 		info, err := os.Stat(path)
@@ -33,14 +44,28 @@ func (s *Service) IndexPaths(paths []string, force bool) (IndexReport, error) {
 			continue
 		}
 
-		content, err := os.ReadFile(path)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		text, warn, err := s.extractFile(ctx, path, info.Size())
+		cancel()
+		for _, w := range warn {
+			report.addMessage(fmt.Sprintf("%s: %s", path, w))
+		}
 		if err != nil {
+			var skip *extract.SkipError
+			if errors.As(err, &skip) {
+				report.addMessage(fmt.Sprintf("%s: %s", path, skip.Error()))
+				continue
+			}
 			report.Errors++
-			report.addMessage(err.Error())
+			report.addMessage(fmt.Sprintf("%s: %v", path, err))
+			continue
+		}
+		if utf8.RuneCountInString(strings.TrimSpace(text)) == 0 {
+			report.addMessage(fmt.Sprintf("%s: skipped (empty extract)", path))
 			continue
 		}
 
-		if err := s.indexFile(path, info, content); err != nil {
+		if err := s.indexFile(path, info, []byte(text)); err != nil {
 			report.Errors++
 			report.addMessage(fmt.Sprintf("%s: %v", path, err))
 			continue
@@ -60,6 +85,15 @@ func (s *Service) IndexPaths(paths []string, force bool) (IndexReport, error) {
 	}
 
 	return report, nil
+}
+
+func (s *Service) extractFile(ctx context.Context, path string, size int64) (string, []string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", nil, err
+	}
+	defer f.Close()
+	return s.extract.Extract(ctx, path, f, size)
 }
 
 func (r *IndexReport) addMessage(msg string) {

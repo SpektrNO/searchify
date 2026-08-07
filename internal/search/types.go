@@ -27,6 +27,8 @@ type IndexStatus struct {
 	VectorChunkCount int      `json:"vector_chunk_count"`
 	EmbedModel       string   `json:"embed_model,omitempty"`
 	VectorReady      bool     `json:"vector_ready"`
+	OCREnabled       bool     `json:"ocr_enabled"`
+	IndexExtensions  []string `json:"index_extensions,omitempty"`
 	IndexedAt        *string  `json:"indexed_at"`
 	Ready            bool     `json:"ready"`
 	Message          string   `json:"message,omitempty"`

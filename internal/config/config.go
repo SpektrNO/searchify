@@ -4,38 +4,50 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	EnvRoots         = "SEARCHIFY_ROOTS"
-	EnvIndexDir      = "SEARCHIFY_INDEX_DIR"
-	EnvLangSearch    = "LANGSEARCH_API_KEY"
-	EnvHTTPToken     = "SEARCHIFY_HTTP_TOKEN"
-	EnvHTTPAddr      = "SEARCHIFY_HTTP_ADDR"
-	EnvEmbedModel    = "SEARCHIFY_EMBED_MODEL"
-	EnvPathBase      = "SEARCHIFY_PATH_BASE"
-	EnvWatchPaths    = "SEARCHIFY_WATCH_PATHS"
-	EnvWatchDebounce = "SEARCHIFY_WATCH_DEBOUNCE"
-	EnvWatchRescan   = "SEARCHIFY_WATCH_RESCAN"
+	EnvRoots           = "SEARCHIFY_ROOTS"
+	EnvIndexDir        = "SEARCHIFY_INDEX_DIR"
+	EnvLangSearch      = "LANGSEARCH_API_KEY"
+	EnvHTTPToken       = "SEARCHIFY_HTTP_TOKEN"
+	EnvHTTPAddr        = "SEARCHIFY_HTTP_ADDR"
+	EnvEmbedModel      = "SEARCHIFY_EMBED_MODEL"
+	EnvPathBase        = "SEARCHIFY_PATH_BASE"
+	EnvWatchPaths      = "SEARCHIFY_WATCH_PATHS"
+	EnvWatchDebounce   = "SEARCHIFY_WATCH_DEBOUNCE"
+	EnvWatchRescan     = "SEARCHIFY_WATCH_RESCAN"
+	EnvOCR             = "SEARCHIFY_OCR"
+	EnvOCRLang         = "SEARCHIFY_OCR_LANG"
+	EnvMaxFileBytes    = "SEARCHIFY_MAX_FILE_BYTES"
+	EnvExtractTimeout  = "SEARCHIFY_EXTRACT_TIMEOUT"
 
-	defaultEmbedModel    = "minilm-l6-v2"
-	defaultHTTPAddr      = ":8080"
-	defaultWatchDebounce = time.Second
+	defaultEmbedModel     = "minilm-l6-v2"
+	defaultHTTPAddr       = ":8080"
+	defaultWatchDebounce  = time.Second
+	defaultMaxFileBytes   = int64(32 * 1024 * 1024)
+	defaultExtractTimeout = 30 * time.Second
+	defaultOCRLang        = "eng"
 )
 
 type Config struct {
-	Roots         []string
-	IndexDir      string
-	LangSearch    string
-	HTTPToken     string
-	HTTPAddr      string
-	EmbedModel    string
-	PathBase      string        // optional; relative paths tried here first
-	WatchPaths    []string      // optional; empty disables auto-index watch
-	WatchDebounce time.Duration // coalesce fs events (default 1s)
-	WatchRescan   time.Duration // optional periodic IndexPaths; 0 disables
+	Roots          []string
+	IndexDir       string
+	LangSearch     string
+	HTTPToken      string
+	HTTPAddr       string
+	EmbedModel     string
+	PathBase       string        // optional; relative paths tried here first
+	WatchPaths     []string      // optional; empty disables auto-index watch
+	WatchDebounce  time.Duration // coalesce fs events (default 1s)
+	WatchRescan    time.Duration // optional periodic IndexPaths; 0 disables
+	OCREnabled     bool
+	OCRLang        string
+	MaxFileBytes   int64
+	ExtractTimeout time.Duration
 }
 
 func Load() (*Config, error) {
@@ -68,17 +80,30 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	maxBytes, err := parseInt64Env(EnvMaxFileBytes, os.Getenv(EnvMaxFileBytes), defaultMaxFileBytes)
+	if err != nil {
+		return nil, err
+	}
+	extractTimeout, err := parseDurationEnv(EnvExtractTimeout, os.Getenv(EnvExtractTimeout), defaultExtractTimeout)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
-		Roots:         roots,
-		IndexDir:      indexDir,
-		LangSearch:    os.Getenv(EnvLangSearch),
-		HTTPToken:     os.Getenv(EnvHTTPToken),
-		HTTPAddr:      defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
-		EmbedModel:    defaultString(os.Getenv(EnvEmbedModel), defaultEmbedModel),
-		PathBase:      pathBase,
-		WatchPaths:    watchPaths,
-		WatchDebounce: debounce,
-		WatchRescan:   rescan,
+		Roots:          roots,
+		IndexDir:       indexDir,
+		LangSearch:     os.Getenv(EnvLangSearch),
+		HTTPToken:      os.Getenv(EnvHTTPToken),
+		HTTPAddr:       defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
+		EmbedModel:     defaultString(os.Getenv(EnvEmbedModel), defaultEmbedModel),
+		PathBase:       pathBase,
+		WatchPaths:     watchPaths,
+		WatchDebounce:  debounce,
+		WatchRescan:    rescan,
+		OCREnabled:     parseBoolEnv(os.Getenv(EnvOCR)),
+		OCRLang:        defaultString(os.Getenv(EnvOCRLang), defaultOCRLang),
+		MaxFileBytes:   maxBytes,
+		ExtractTimeout: extractTimeout,
 	}, nil
 }
 
@@ -187,6 +212,30 @@ func parseDurationEnv(name, raw string, fallback time.Duration) (time.Duration, 
 		return 0, fmt.Errorf("%s must be >= 0", name)
 	}
 	return d, nil
+}
+
+func parseBoolEnv(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func parseInt64Env(name, raw string, fallback int64) (int64, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return fallback, nil
+	}
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse %s: %w", name, err)
+	}
+	if n <= 0 {
+		return 0, fmt.Errorf("%s must be > 0", name)
+	}
+	return n, nil
 }
 
 func defaultIndexDir(raw string) (string, error) {

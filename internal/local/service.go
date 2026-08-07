@@ -14,6 +14,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/spektr/searchify/internal/config"
+	"github.com/spektr/searchify/internal/extract"
 )
 
 const schemaVersion = 2
@@ -21,6 +22,7 @@ const schemaVersion = 2
 type Service struct {
 	cfg          *config.Config
 	db           *sql.DB
+	extract      *extract.Registry
 	embedOnce    sync.Once
 	embedder     Embedder
 	embedErr     error
@@ -47,7 +49,14 @@ func NewService(cfg *config.Config) (*Service, error) {
 	}
 	db.SetMaxOpenConns(1)
 
-	svc := &Service{cfg: cfg, db: db}
+	svc := &Service{
+		cfg: cfg,
+		db:  db,
+		extract: extract.NewRegistry(extract.Options{
+			OCREnabled: cfg.OCREnabled,
+			OCRLang:    cfg.OCRLang,
+		}),
+	}
 	if err := svc.migrate(); err != nil {
 		_ = db.Close()
 		return nil, err
