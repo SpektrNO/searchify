@@ -33,6 +33,8 @@ func main() {
 		runServe(os.Args[2:])
 	case "index":
 		runIndex(os.Args[2:])
+	case "remove":
+		runRemove(os.Args[2:])
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -158,6 +160,48 @@ func runIndex(args []string) {
 	}
 }
 
+func runRemove(args []string) {
+	fs := flag.NewFlagSet("remove", flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: searchify remove <path...>")
+	}
+	if err := fs.Parse(args); err != nil {
+		log.Fatal(err)
+	}
+	if fs.NArg() == 0 {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	svc, err := local.NewService(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer svc.Close()
+
+	start := time.Now()
+	report, err := svc.RemovePaths(fs.Args())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("removed=%d skipped=%d errors=%d duration_ms=%d\n",
+		report.Removed, report.Skipped, report.Errors,
+		int(time.Since(start)/time.Millisecond))
+
+	for _, msg := range report.Messages {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", msg)
+	}
+	if report.Errors > 0 {
+		os.Exit(1)
+	}
+}
+
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `searchify - hybrid text search MCP server
 
@@ -165,6 +209,7 @@ usage:
   searchify mcp stdio          Run MCP server over stdin/stdout
   searchify index [--force] <paths...>
                                Build or refresh local keyword index
+  searchify remove <paths...>  Remove files/dirs from the local index
   searchify serve http [--addr HOST:PORT] [--path /mcp]
                                Run MCP server over Streamable HTTP
 

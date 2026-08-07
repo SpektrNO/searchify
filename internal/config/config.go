@@ -149,7 +149,48 @@ func (c *Config) AllowedPath(path string) (string, error) {
 		return c.allowAbsolute(filepath.Clean(path))
 	}
 
-	return c.resolveRelative(filepath.Clean(path))
+	matches, err := c.relativeCandidates(filepath.Clean(path), true)
+	if err != nil {
+		return "", err
+	}
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("relative path %q not found under SEARCHIFY_ROOTS (%d root(s)); use an absolute path or set SEARCHIFY_PATH_BASE", path, len(c.Roots))
+	case 1:
+		return matches[0], nil
+	default:
+		return "", fmt.Errorf("relative path %q is ambiguous; matches: %s", path, strings.Join(matches, ", "))
+	}
+}
+
+// AllowlistedCandidates returns allowlisted absolute path candidates without requiring
+// the path to exist on disk. Absolute inputs yield at most one candidate.
+// Relative inputs may yield multiple join candidates (caller disambiguates, e.g. via index).
+func (c *Config) AllowlistedCandidates(path string) ([]string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, fmt.Errorf("path is required")
+	}
+	if path == "." {
+		return nil, fmt.Errorf("path %q is not allowed; use an absolute path or a relative path under SEARCHIFY_ROOTS", path)
+	}
+
+	if filepath.IsAbs(path) {
+		abs, err := c.allowAbsolute(filepath.Clean(path))
+		if err != nil {
+			return nil, err
+		}
+		return []string{abs}, nil
+	}
+
+	matches, err := c.relativeCandidates(filepath.Clean(path), false)
+	if err != nil {
+		return nil, err
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("relative path %q is outside allowed roots or escapes via ..", path)
+	}
+	return matches, nil
 }
 
 func (c *Config) allowAbsolute(abs string) (string, error) {
@@ -161,7 +202,7 @@ func (c *Config) allowAbsolute(abs string) (string, error) {
 	return "", fmt.Errorf("path %q is outside allowed roots", abs)
 }
 
-func (c *Config) resolveRelative(rel string) (string, error) {
+func (c *Config) relativeCandidates(rel string, requireExist bool) ([]string, error) {
 	var matches []string
 	seen := make(map[string]struct{})
 
@@ -182,8 +223,10 @@ func (c *Config) resolveRelative(rel string) (string, error) {
 		if !underRoot {
 			return
 		}
-		if _, err := os.Stat(candidate); err != nil {
-			return
+		if requireExist {
+			if _, err := os.Stat(candidate); err != nil {
+				return
+			}
 		}
 		if _, ok := seen[candidate]; ok {
 			return
@@ -198,15 +241,7 @@ func (c *Config) resolveRelative(rel string) (string, error) {
 	for _, root := range c.Roots {
 		try(root)
 	}
-
-	switch len(matches) {
-	case 0:
-		return "", fmt.Errorf("relative path %q not found under SEARCHIFY_ROOTS (%d root(s)); use an absolute path or set SEARCHIFY_PATH_BASE", rel, len(c.Roots))
-	case 1:
-		return matches[0], nil
-	default:
-		return "", fmt.Errorf("relative path %q is ambiguous; matches: %s", rel, strings.Join(matches, ", "))
-	}
+	return matches, nil
 }
 
 func pathWithinRoot(path, root string) bool {

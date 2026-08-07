@@ -128,6 +128,18 @@ Index or refresh files under one or more paths (must be under `SEARCHIFY_ROOTS`)
 }
 ```
 
+Re-indexing does **not** remove deleted files from the index. Use `remove_paths` (or `searchify remove`) for that.
+
+### `remove_paths`
+
+Remove files or directories from the local index (FTS chunks, vectors, and `files` rows). Paths must stay under `SEARCHIFY_ROOTS` but **need not exist on disk**. A directory path drops that path and all indexed children.
+
+```json
+{
+  "paths": ["/abs/path/to/deleted.md", "docs/old"]
+}
+```
+
 ### `search_local`
 
 Search the persisted index. Default mode is `hybrid` when vectors exist, otherwise `keyword`.

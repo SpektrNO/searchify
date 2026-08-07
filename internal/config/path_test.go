@@ -124,3 +124,25 @@ func TestParsePathBaseMustBeUnderRoot(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestAllowlistedCandidatesMissingOK(t *testing.T) {
+	root := t.TempDir()
+	missing := filepath.Join(root, "gone.md")
+	cfg := &Config{Roots: []string{root}}
+
+	got, err := cfg.AllowlistedCandidates(missing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != filepath.Clean(missing) {
+		t.Fatalf("got %v", got)
+	}
+
+	got, err = cfg.AllowlistedCandidates("gone.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != filepath.Clean(missing) {
+		t.Fatalf("got %v", got)
+	}
+}

@@ -59,7 +59,7 @@ Optional follow-ups — not required for v1. Spec with `/spec-only` when priorit
 | `opt-tls-reverse-proxy` | Document/deploy TLS termination via reverse proxy in front of `serve http` | ⬜ | [architecture.md](./architecture.md) |
 | `opt-rest-v1-search` | Plain REST `POST /v1/search` for app backends (e.g. Groundline) without MCP JSON-RPC | ⬜ | [architecture.md](./architecture.md) |
 | `opt-rest-v1-index` | Plain REST `POST /v1/index` twin of `index_paths` (`paths`, `force`) for app-driven ingest | ⬜ | [architecture.md](./architecture.md) |
-| `opt-remove-path` | Remove deleted files from the index (MCP tool and/or REST); prune FTS + vectors | ⬜ | [architecture.md](./architecture.md) |
+| `opt-remove-path` | Remove deleted files from the index (MCP tool and/or REST); prune FTS + vectors | ✅ | [handoffs/archive/2026-08-07-opt-remove-path.md](./handoffs/archive/2026-08-07-opt-remove-path.md) |
 | `opt-index-prune` | Reconcile index vs disk: drop orphan DB rows for files missing under a root | ⬜ | [architecture.md](./architecture.md) |
 | `opt-auto-index-watch` | Optional fsnotify (or periodic rescan) on configured watch paths to index new/changed files | ⬜ | [architecture.md](./architecture.md) |
 | `opt-relative-path-resolve` | Resolve relative `search_file` / index paths against roots or workspace, not MCP process cwd | ✅ | [handoffs/archive/2026-08-07-opt-relative-path-resolve.md](./handoffs/archive/2026-08-07-opt-relative-path-resolve.md) |
