@@ -252,7 +252,7 @@ CLI: `searchify prune [--dry-run] [paths...]`
 
 ### Auto-index watch
 
-Set `SEARCHIFY_WATCH_PATHS` (comma-separated, under roots) to enable fsnotify-based indexing while `mcp stdio` or `serve http` runs. Writes debounce (`SEARCHIFY_WATCH_DEBOUNCE`, default `1s`); deletes call `remove_paths`. Optional `SEARCHIFY_WATCH_RESCAN` (e.g. `5m`) periodically re-indexes watch roots. `index_status` reports `watch_enabled` / `watch_paths`.
+**Off by default.** Set `SEARCHIFY_WATCH_PATHS` (comma-separated, under roots) to enable fsnotify-based indexing while `mcp stdio` or `serve http` runs. Writes debounce (`SEARCHIFY_WATCH_DEBOUNCE`, default `1s`); deletes call `remove_paths`. Optional `SEARCHIFY_WATCH_RESCAN` (e.g. `5m`) periodically re-indexes watch roots — recommended for OneDrive / cloud-synced folders where file events are unreliable. `index_status` reports `watch_enabled` / `watch_paths`. See [Indexing lifecycle](#indexing-lifecycle).
 
 ### `search_local`
 
