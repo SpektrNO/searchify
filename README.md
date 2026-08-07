@@ -150,6 +150,18 @@ Typical flow:
 
 CLI `index` prints progress on **stderr** (`[i/N] indexing …`) so long catalogues are distinguishable from a hang; the final `indexed=` line is on stdout.
 
+**Large corpora / Windows OOM:** the ONNX embedder (kjarni) can grow native RSS into many GB. Prefer a two-pass ingest:
+
+```bash
+# Pass 1 — keyword/FTS only (low RAM)
+searchify index --skip-embed /path/to/corpus
+
+# Pass 2 — optional vectors later (or omit and use mode=keyword)
+# unset SEARCHIFY_SKIP_EMBED; searchify index --force /path/to/corpus
+```
+
+Or set `SEARCHIFY_SKIP_EMBED=1` in the environment. Hybrid/vector search needs pass 2; `mode=keyword` works after pass 1.
+
 ### Watch vs serve
 
 | Mode | Behavior |
@@ -194,10 +206,12 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_WATCH_RESCAN` | no | Periodic re-index of watch paths (e.g. `5m`); `0`/empty disables |
 | `SEARCHIFY_OCR` | no | `1`/`true`/`on` enables OCR for images and scanned-PDF fallback (needs `tesseract` on `PATH`; PDF OCR also needs `pdftoppm`) |
 | `SEARCHIFY_OCR_LANG` | no | Tesseract language (default `eng`) |
-| `SEARCHIFY_MAX_FILE_BYTES` | no | Skip source files larger than this during index (default `8388608` / 8 MiB) |
-| `SEARCHIFY_MAX_EXTRACT_BYTES` | no | Truncate extracted text before chunking (default `2097152` / 2 MiB) |
-| `SEARCHIFY_MAX_CHUNKS_PER_FILE` | no | Max chunks embedded per file (default `256`) |
-| `SEARCHIFY_EMBED_BATCH` | no | ONNX `EncodeBatch` size (default `16`; lower if RAM-constrained) |
+| `SEARCHIFY_MAX_FILE_BYTES` | no | Skip source files larger than this during index (default `2097152` / 2 MiB) |
+| `SEARCHIFY_MAX_EXTRACT_BYTES` | no | Truncate extracted text before chunking (default `524288` / 512 KiB) |
+| `SEARCHIFY_MAX_CHUNKS_PER_FILE` | no | Max chunks embedded per file (default `64`) |
+| `SEARCHIFY_EMBED_BATCH` | no | ONNX batch size (default `1`) |
+| `SEARCHIFY_SKIP_EMBED` | no | `1`/`true` — FTS/keyword index only; **do not load ONNX** (recommended for large Windows corpora) |
+| `SEARCHIFY_EMBED_RELOAD` | no | Close/reopen embedder after each file to reclaim native RSS (default **on**; set `0` to disable) |
 | `SEARCHIFY_EXTRACT_TIMEOUT` | no | Per-file extract deadline (Go duration, default `30s`) |
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
 | `SEARCHIFY_HTTP_TOKEN` | for HTTP | Bearer token (required to start `serve http`) |
@@ -225,7 +239,7 @@ Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.y
 
 Extracted formats: `.pdf` `.docx` `.xlsx` `.csv` `.html`/`.htm`, plus stretch `.pptx` `.odt`/`.ods`/`.odp` `.rtf` `.eml`. Images (`.png` `.jpg` `.jpeg` `.webp` `.tif` `.tiff` `.gif`) index only when `SEARCHIFY_OCR=1`. Other extensions are ignored. `index_status` reports `ocr_enabled` and `index_extensions`.
 
-Indexing caps memory via `SEARCHIFY_MAX_FILE_BYTES` (default 8 MiB), `SEARCHIFY_MAX_EXTRACT_BYTES` (2 MiB), `SEARCHIFY_MAX_CHUNKS_PER_FILE` (256), and batched embeds (`SEARCHIFY_EMBED_BATCH`, default 16).
+Indexing caps memory via `SEARCHIFY_MAX_FILE_BYTES` (default 2 MiB), `SEARCHIFY_MAX_EXTRACT_BYTES` (512 KiB), `SEARCHIFY_MAX_CHUNKS_PER_FILE` (64), batched embeds (`SEARCHIFY_EMBED_BATCH`, default 1), optional `SEARCHIFY_SKIP_EMBED` / `index --skip-embed` (FTS only), and embedder reload after each file (`SEARCHIFY_EMBED_RELOAD`, default on).
 
 ### `remove_paths`
 

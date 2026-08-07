@@ -23,7 +23,7 @@ type Service struct {
 	cfg          *config.Config
 	db           *sql.DB
 	extract      *extract.Registry
-	embedOnce    sync.Once
+	embedMu      sync.Mutex
 	embedder     Embedder
 	embedErr     error
 	embedForTest Embedder
@@ -65,9 +65,7 @@ func NewService(cfg *config.Config) (*Service, error) {
 }
 
 func (s *Service) Close() error {
-	if s.embedder != nil {
-		_ = s.embedder.Close()
-	}
+	s.dropEmbedder()
 	if s.db == nil {
 		return nil
 	}
@@ -174,10 +172,30 @@ func (s *Service) getEmbedder() (Embedder, error) {
 	if s.embedForTest != nil {
 		return s.embedForTest, nil
 	}
-	s.embedOnce.Do(func() {
-		s.embedder, s.embedErr = newKjarniEmbedder(s.cfg.EmbedModel)
-	})
+	s.embedMu.Lock()
+	defer s.embedMu.Unlock()
+	if s.embedder != nil {
+		return s.embedder, nil
+	}
+	if s.embedErr != nil {
+		return nil, s.embedErr
+	}
+	s.embedder, s.embedErr = newKjarniEmbedder(s.cfg.EmbedModel)
 	return s.embedder, s.embedErr
+}
+
+// dropEmbedder closes the native ONNX embedder so process RSS can shrink.
+func (s *Service) dropEmbedder() {
+	if s.embedForTest != nil {
+		return
+	}
+	s.embedMu.Lock()
+	defer s.embedMu.Unlock()
+	if s.embedder != nil {
+		_ = s.embedder.Close()
+		s.embedder = nil
+	}
+	s.embedErr = nil
 }
 
 // SetEmbedderForTest injects a fake embedder (tests only).
@@ -237,7 +255,7 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 	}
 	maxChunks := s.cfg.MaxChunksPerFile
 	if maxChunks <= 0 {
-		maxChunks = 256
+		maxChunks = 64
 	}
 	var warn string
 	if len(chunks) > maxChunks {
@@ -264,13 +282,18 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 		}
 	}
 
-	if len(texts) > 0 {
+	if len(texts) > 0 && !s.cfg.SkipEmbed {
 		if err := s.embedAndStore(chunkIDs, texts); err != nil {
 			return warn, err
 		}
 		if err := s.setMeta("embed_model", s.cfg.EmbedModel); err != nil {
 			return warn, err
 		}
+	} else if s.cfg.SkipEmbed {
+		if warn != "" {
+			warn += "; "
+		}
+		warn += "keyword-only (SEARCHIFY_SKIP_EMBED); vectors not written"
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -295,7 +318,7 @@ func (s *Service) embedAndStore(chunkIDs, texts []string) error {
 	}
 	batch := s.cfg.EmbedBatch
 	if batch <= 0 {
-		batch = 16
+		batch = 1
 	}
 	for start := 0; start < len(texts); start += batch {
 		end := start + batch
@@ -304,9 +327,19 @@ func (s *Service) embedAndStore(chunkIDs, texts []string) error {
 		}
 		ids := chunkIDs[start:end]
 		batchTexts := texts[start:end]
-		vectors, err := embedder.EncodeBatch(batchTexts)
-		if err != nil {
-			return fmt.Errorf("embed chunks: %w", err)
+
+		var vectors [][]float32
+		if batch == 1 {
+			v, err := embedder.Encode(batchTexts[0])
+			if err != nil {
+				return fmt.Errorf("embed chunks: %w", err)
+			}
+			vectors = [][]float32{v}
+		} else {
+			vectors, err = embedder.EncodeBatch(batchTexts)
+			if err != nil {
+				return fmt.Errorf("embed chunks: %w", err)
+			}
 		}
 		if len(vectors) != len(ids) {
 			return fmt.Errorf("embedder returned %d vectors for %d chunks", len(vectors), len(ids))

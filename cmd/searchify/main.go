@@ -122,8 +122,9 @@ func runServe(args []string) {
 func runIndex(args []string) {
 	fs := flag.NewFlagSet("index", flag.ExitOnError)
 	force := fs.Bool("force", false, "re-index files even when metadata is unchanged")
+	skipEmbed := fs.Bool("skip-embed", false, "FTS/keyword only; do not load ONNX embedder (low RAM)")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: searchify index [--force] <path...>")
+		fmt.Fprintln(os.Stderr, "usage: searchify index [--force] [--skip-embed] <path...>")
 	}
 	if err := fs.Parse(args); err != nil {
 		log.Fatal(err)
@@ -137,12 +138,19 @@ func runIndex(args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if *skipEmbed {
+		cfg.SkipEmbed = true
+	}
 
 	svc, err := local.NewService(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer svc.Close()
+
+	if cfg.SkipEmbed {
+		fmt.Fprintln(os.Stderr, "index: SEARCHIFY_SKIP_EMBED / --skip-embed — keyword-only (no ONNX vectors)")
+	}
 
 	start := time.Now()
 	report, err := svc.IndexPathsOpts(fs.Args(), local.IndexPathsOptions{
@@ -268,7 +276,7 @@ func printUsage() {
 
 usage:
   searchify mcp stdio          Run MCP server over stdin/stdout
-  searchify index [--force] <paths...>
+  searchify index [--force] [--skip-embed] <paths...>
                                Build or refresh local keyword index
   searchify remove <paths...>  Remove files/dirs from the local index
   searchify prune [--dry-run] [paths...]
@@ -285,10 +293,12 @@ environment:
   SEARCHIFY_WATCH_RESCAN       Optional periodic rescan (e.g. 5m; empty=off)
   SEARCHIFY_OCR                Enable OCR for images / scanned PDFs (1/true/on)
   SEARCHIFY_OCR_LANG           Tesseract language (default eng)
-  SEARCHIFY_MAX_FILE_BYTES     Skip source files larger than this (default 8388608)
-  SEARCHIFY_MAX_EXTRACT_BYTES  Truncate extracted text (default 2097152)
-  SEARCHIFY_MAX_CHUNKS_PER_FILE Max chunks per file (default 256)
-  SEARCHIFY_EMBED_BATCH        Embedding batch size (default 16)
+  SEARCHIFY_MAX_FILE_BYTES     Skip source files larger than this (default 2097152)
+  SEARCHIFY_MAX_EXTRACT_BYTES  Truncate extracted text (default 524288)
+  SEARCHIFY_MAX_CHUNKS_PER_FILE Max chunks per file (default 64)
+  SEARCHIFY_EMBED_BATCH        Embedding batch size (default 1)
+  SEARCHIFY_SKIP_EMBED         1=FTS only, skip ONNX (low RAM)
+  SEARCHIFY_EMBED_RELOAD       Close embedder each file (default on)
   SEARCHIFY_EXTRACT_TIMEOUT    Per-file extract deadline (default 30s)
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank
   SEARCHIFY_HTTP_TOKEN         Required Bearer token for HTTP transport

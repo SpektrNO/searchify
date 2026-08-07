@@ -27,16 +27,18 @@ const (
 	EnvEmbedBatch      = "SEARCHIFY_EMBED_BATCH"
 	EnvMaxChunksFile   = "SEARCHIFY_MAX_CHUNKS_PER_FILE"
 	EnvMaxExtractBytes = "SEARCHIFY_MAX_EXTRACT_BYTES"
+	EnvSkipEmbed       = "SEARCHIFY_SKIP_EMBED"
+	EnvEmbedReload     = "SEARCHIFY_EMBED_RELOAD"
 
 	defaultEmbedModel      = "minilm-l6-v2"
 	defaultHTTPAddr        = ":8080"
 	defaultWatchDebounce   = time.Second
-	defaultMaxFileBytes    = int64(8 * 1024 * 1024) // safer default; raise via env for large PDFs
+	defaultMaxFileBytes    = int64(2 * 1024 * 1024) // keep bulk index RAM-friendly
 	defaultExtractTimeout  = 30 * time.Second
 	defaultOCRLang         = "eng"
-	defaultEmbedBatch      = 16
-	defaultMaxChunksFile   = 256
-	defaultMaxExtractBytes = int64(2 * 1024 * 1024)
+	defaultEmbedBatch      = 1 // ONNX batching ballooned RSS; single-chunk is safer
+	defaultMaxChunksFile   = 64
+	defaultMaxExtractBytes = int64(512 * 1024)
 )
 
 type Config struct {
@@ -54,9 +56,11 @@ type Config struct {
 	OCRLang          string
 	MaxFileBytes     int64
 	ExtractTimeout   time.Duration
-	EmbedBatch       int   // ONNX EncodeBatch size (default 16)
-	MaxChunksPerFile int   // truncate indexing after N chunks (default 256)
-	MaxExtractBytes  int64 // truncate extracted text before chunking (default 2MiB)
+	EmbedBatch       int   // ONNX EncodeBatch size (default 1)
+	MaxChunksPerFile int   // truncate indexing after N chunks (default 64)
+	MaxExtractBytes  int64 // truncate extracted text before chunking (default 512KiB)
+	SkipEmbed        bool  // FTS-only index; skip ONNX (huge RAM savings)
+	EmbedReload      bool  // close/reopen embedder after each file to drop native RSS
 }
 
 func Load() (*Config, error) {
@@ -128,6 +132,9 @@ func Load() (*Config, error) {
 		EmbedBatch:       embedBatch,
 		MaxChunksPerFile: maxChunks,
 		MaxExtractBytes:  maxExtract,
+		SkipEmbed:        parseBoolEnv(os.Getenv(EnvSkipEmbed)),
+		// Default ON: native ONNX RSS is not returned to the OS without Close.
+		EmbedReload: parseBoolEnvDefaultTrue(os.Getenv(EnvEmbedReload)),
 	}, nil
 }
 
@@ -244,6 +251,18 @@ func parseBoolEnv(raw string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// parseBoolEnvDefaultTrue treats empty as true; only 0/false/off/no disable.
+func parseBoolEnvDefaultTrue(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return true
 	}
 }
 
