@@ -32,3 +32,14 @@ curl -sS https://api.langsearch.com/v1/rerank \
 | `500` / `rerank engine error` | LangSearch-side failure; note `log_id` and check [dashboard](https://langsearch.com/dashboard) / support. Confirm web search still works with the same key via `POST /v1/web-search`. |
 
 Docs: [Semantic Rerank API](https://docs.langsearch.com/api/semantic-rerank-api), [API limits](https://docs.langsearch.com/limits/api-limits).
+
+## Vector search: embed_model mismatch
+
+Error like `index embed_model="minilm-l6-v2" but SEARCHIFY_EMBED_MODEL="mpnet-base-v2"` means the SQLite index was built with a different embedding model than the running process. Dimensions must not be mixed.
+
+```bash
+export SEARCHIFY_EMBED_MODEL=mpnet-base-v2   # must match the model you want going forward
+./bin/searchify embed --force
+```
+
+Keyword `mode=keyword` still works without re-embed. After a successful force embed, `index_status.embed_model` should match the env.
