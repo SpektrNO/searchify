@@ -48,4 +48,24 @@ Make higher-quality kjarni embedding models selectable via `SEARCHIFY_EMBED_MODE
 
 ## Implementation result
 
-*(Developer fills.)*
+### Changes
+
+- `SEARCHIFY_EMBED_MODEL` validated against kjarni models: `minilm-l6-v2` (384d, default), `mpnet-base-v2` (768d), `distilbert-base` (768d).
+- On embed/index vector write: if `meta.embed_model` differs and vectors exist → `DELETE FROM chunk_vectors` then rebuild (avoids mixed dims).
+- Vector/hybrid search errors on model mismatch with `searchify embed --force` guidance; keyword unaffected.
+- MCP **0.8.3**.
+
+### Verification
+
+- [x] `go test ./...` (includes `TestValidateEmbedModel`, `TestEmbedModelChangeClearsVectors`, `TestVectorSearchRejectsEmbedModelMismatch`)
+- [x] `go build -o bin/searchify ./cmd/searchify`
+- [ ] Manual: set `SEARCHIFY_EMBED_MODEL=mpnet-base-v2`, `searchify embed --force`, hybrid search (downloads model on first use; larger RSS)
+
+### Deviations from spec
+
+- No multilingual embed option — kjarni-go has none; documented as follow-up.
+
+### Follow-ups
+
+- Multilingual embeddings if/when kjarni ships one.
+- Optional `index_status` list of known models (docs cover this for now).
