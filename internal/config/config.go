@@ -25,12 +25,14 @@ const (
 	EnvMaxFileBytes    = "SEARCHIFY_MAX_FILE_BYTES"
 	EnvExtractTimeout  = "SEARCHIFY_EXTRACT_TIMEOUT"
 	EnvEmbedBatch      = "SEARCHIFY_EMBED_BATCH"
-	EnvMaxChunksFile   = "SEARCHIFY_MAX_CHUNKS_PER_FILE"
-	EnvMaxExtractBytes = "SEARCHIFY_MAX_EXTRACT_BYTES"
-	EnvSkipEmbed       = "SEARCHIFY_SKIP_EMBED"
-	EnvEmbedReload     = "SEARCHIFY_EMBED_RELOAD"
-	EnvEmbedBackend    = "SEARCHIFY_EMBED_BACKEND"
-	EnvTextOnly        = "SEARCHIFY_TEXT_ONLY"
+	EnvMaxChunksFile    = "SEARCHIFY_MAX_CHUNKS_PER_FILE"
+	EnvMaxExtractBytes  = "SEARCHIFY_MAX_EXTRACT_BYTES"
+	EnvChunkBytes       = "SEARCHIFY_CHUNK_BYTES"
+	EnvChunkOverlap     = "SEARCHIFY_CHUNK_OVERLAP"
+	EnvSkipEmbed        = "SEARCHIFY_SKIP_EMBED"
+	EnvEmbedReload      = "SEARCHIFY_EMBED_RELOAD"
+	EnvEmbedBackend     = "SEARCHIFY_EMBED_BACKEND"
+	EnvTextOnly         = "SEARCHIFY_TEXT_ONLY"
 	EnvExtractInProcess = "SEARCHIFY_EXTRACT_INPROCESS"
 
 	defaultEmbedModel      = "minilm-l6-v2"
@@ -42,6 +44,8 @@ const (
 	defaultEmbedBatch      = 1 // ONNX batching ballooned RSS; single-chunk is safer
 	defaultMaxChunksFile   = 64
 	defaultMaxExtractBytes = int64(512 * 1024)
+	defaultChunkBytes      = 3072
+	defaultChunkOverlap    = 256
 	defaultEmbedBackend    = EmbedBackendProcess
 )
 
@@ -72,6 +76,8 @@ type Config struct {
 	EmbedBatch       int   // ONNX EncodeBatch size (default 1)
 	MaxChunksPerFile int   // truncate indexing after N chunks (default 64)
 	MaxExtractBytes  int64 // truncate extracted text before chunking (default 512KiB)
+	ChunkBytes       int   // soft target chunk size in bytes (default 3072)
+	ChunkOverlap     int   // overlap bytes between consecutive chunks (default 256)
 	SkipEmbed        bool  // FTS-only index; skip ONNX (huge RAM savings)
 	EmbedReload      bool  // close/reopen embedder after each file to drop native RSS
 	EmbedBackend     EmbedBackend
@@ -156,6 +162,23 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	chunkBytes, err := parseIntEnv(EnvChunkBytes, os.Getenv(EnvChunkBytes), defaultChunkBytes)
+	if err != nil {
+		return nil, err
+	}
+	if chunkBytes <= 0 {
+		return nil, fmt.Errorf("%s must be > 0", EnvChunkBytes)
+	}
+	chunkOverlap, err := parseIntEnv(EnvChunkOverlap, os.Getenv(EnvChunkOverlap), defaultChunkOverlap)
+	if err != nil {
+		return nil, err
+	}
+	if chunkOverlap < 0 {
+		return nil, fmt.Errorf("%s must be >= 0", EnvChunkOverlap)
+	}
+	if chunkOverlap >= chunkBytes {
+		return nil, fmt.Errorf("%s (%d) must be < %s (%d)", EnvChunkOverlap, chunkOverlap, EnvChunkBytes, chunkBytes)
+	}
 	backend, err := parseEmbedBackend(os.Getenv(EnvEmbedBackend))
 	if err != nil {
 		return nil, err
@@ -183,6 +206,8 @@ func Load() (*Config, error) {
 		EmbedBatch:       embedBatch,
 		MaxChunksPerFile: maxChunks,
 		MaxExtractBytes:  maxExtract,
+		ChunkBytes:       chunkBytes,
+		ChunkOverlap:     chunkOverlap,
 		SkipEmbed:        parseBoolEnv(os.Getenv(EnvSkipEmbed)),
 		// Default ON: native ONNX RSS is not returned to the OS without Close.
 		EmbedReload:  parseBoolEnvDefaultTrue(os.Getenv(EnvEmbedReload)),

@@ -4,9 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"strings"
+	"unicode/utf8"
 )
 
-const targetChunkBytes = 3072
+const (
+	defaultChunkBytes   = 3072
+	defaultChunkOverlap = 256
+)
 
 type chunk struct {
 	Index     int
@@ -15,63 +19,60 @@ type chunk struct {
 	Text      string
 }
 
-func chunkFile(content []byte) ([]chunk, error) {
-	scanner := bufio.NewScanner(bytes.NewReader(content))
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+// ChunkParams controls packing of extracted text into retrieval chunks.
+type ChunkParams struct {
+	TargetBytes  int // soft max chunk size in bytes (default 3072)
+	OverlapBytes int // suffix of prior chunk prepended to the next (default 256)
+}
 
-	var paragraphs []struct {
-		lineStart int
-		lineEnd   int
-		text      string
+func normalizeChunkParams(p ChunkParams) ChunkParams {
+	if p.TargetBytes <= 0 {
+		p.TargetBytes = defaultChunkBytes
 	}
-
-	lineNo := 0
-	var paraLines []string
-	paraStart := 0
-
-	flushPara := func(endLine int) {
-		if len(paraLines) == 0 {
-			return
-		}
-		paragraphs = append(paragraphs, struct {
-			lineStart int
-			lineEnd   int
-			text      string
-		}{
-			lineStart: paraStart,
-			lineEnd:   endLine,
-			text:      strings.Join(paraLines, "\n"),
-		})
-		paraLines = nil
+	if p.OverlapBytes < 0 {
+		p.OverlapBytes = 0
 	}
-
-	for scanner.Scan() {
-		lineNo++
-		line := scanner.Text()
-		if strings.TrimSpace(line) == "" {
-			flushPara(lineNo - 1)
-			continue
-		}
-		if len(paraLines) == 0 {
-			paraStart = lineNo
-		}
-		paraLines = append(paraLines, line)
+	if p.OverlapBytes >= p.TargetBytes {
+		p.OverlapBytes = p.TargetBytes / 4
 	}
-	if err := scanner.Err(); err != nil {
+	return p
+}
+
+type segment struct {
+	lineStart int
+	lineEnd   int
+	text      string
+	hardStart bool // do not append onto a non-empty buffer (heading / page break)
+}
+
+func chunkFile(content []byte, params ChunkParams) ([]chunk, error) {
+	params = normalizeChunkParams(params)
+	segments, err := splitSegments(content)
+	if err != nil {
 		return nil, err
 	}
-	flushPara(lineNo)
-
-	if len(paragraphs) == 0 {
+	if len(segments) == 0 {
 		return nil, nil
+	}
+
+	// Expand units larger than the target into hard windows.
+	var units []segment
+	for _, seg := range segments {
+		parts := splitOversized(seg, params.TargetBytes)
+		for i := range parts {
+			if i > 0 {
+				parts[i].hardStart = true
+			}
+		}
+		units = append(units, parts...)
 	}
 
 	var chunks []chunk
 	var buf strings.Builder
-	bufStart := paragraphs[0].lineStart
-	bufEnd := paragraphs[0].lineEnd
+	bufStart, bufEnd := 0, 0
+	var overlapCarry string
 
-	flushChunk := func() {
+	flush := func() {
 		text := strings.TrimSpace(buf.String())
 		if text == "" {
 			buf.Reset()
@@ -83,41 +84,231 @@ func chunkFile(content []byte) ([]chunk, error) {
 			LineEnd:   bufEnd,
 			Text:      text,
 		})
+		if params.OverlapBytes > 0 {
+			overlapCarry = overlapSuffix(text, params.OverlapBytes)
+		} else {
+			overlapCarry = ""
+		}
 		buf.Reset()
 	}
 
-	for i, p := range paragraphs {
+	for _, u := range units {
+		if buf.Len() > 0 && u.hardStart {
+			flush()
+		}
 		if buf.Len() == 0 {
-			bufStart = p.lineStart
+			bufStart = u.lineStart
+			if overlapCarry != "" {
+				buf.WriteString(overlapCarry)
+				if !strings.HasSuffix(overlapCarry, "\n") {
+					buf.WriteByte('\n')
+				}
+			}
 		}
 
 		sep := ""
-		if buf.Len() > 0 {
+		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n") {
 			sep = "\n\n"
 		}
-		candidate := buf.String() + sep + p.text
-		if buf.Len() > 0 && len(candidate) > targetChunkBytes {
-			bufEnd = paragraphs[i-1].lineEnd
-			flushChunk()
-			bufStart = p.lineStart
-			buf.WriteString(p.text)
-			bufEnd = p.lineEnd
+		candidateLen := buf.Len() + len(sep) + len(u.text)
+		if buf.Len() > 0 && candidateLen > params.TargetBytes {
+			flush()
+			bufStart = u.lineStart
+			if overlapCarry != "" {
+				buf.WriteString(overlapCarry)
+				if !strings.HasSuffix(overlapCarry, "\n") {
+					buf.WriteByte('\n')
+				}
+			}
+		}
+
+		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n") {
+			buf.WriteString("\n\n")
+		}
+		buf.WriteString(u.text)
+		bufEnd = u.lineEnd
+
+		if buf.Len() >= params.TargetBytes {
+			flush()
+		}
+	}
+	flush()
+
+	return chunks, nil
+}
+
+func splitSegments(content []byte) ([]segment, error) {
+	scanner := bufio.NewScanner(bytes.NewReader(content))
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	var segments []segment
+	lineNo := 0
+	var lines []string
+	segStart := 0
+
+	flush := func(endLine int, hardStart bool) {
+		if len(lines) == 0 {
+			return
+		}
+		text := strings.TrimRight(strings.Join(lines, "\n"), "\n")
+		if strings.TrimSpace(text) == "" {
+			lines = nil
+			return
+		}
+		segments = append(segments, segment{
+			lineStart: segStart,
+			lineEnd:   endLine,
+			text:      text,
+			hardStart: hardStart,
+		})
+		lines = nil
+	}
+
+	for scanner.Scan() {
+		lineNo++
+		raw := scanner.Text()
+
+		// Form-feed (common PDF page break from pdftotext): hard boundary.
+		if strings.ContainsRune(raw, '\f') {
+			parts := strings.Split(raw, "\f")
+			for i, part := range parts {
+				if i > 0 {
+					flush(lineNo-1, false)
+				}
+				part = strings.TrimRight(part, "\r")
+				if strings.TrimSpace(part) == "" {
+					continue
+				}
+				if len(lines) == 0 {
+					segStart = lineNo
+				}
+				lines = append(lines, part)
+				if i > 0 {
+					flush(lineNo, true)
+				}
+			}
 			continue
 		}
 
-		if buf.Len() > 0 {
-			buf.WriteString(sep)
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			flush(lineNo-1, false)
+			continue
 		}
-		buf.WriteString(p.text)
-		bufEnd = p.lineEnd
 
-		if buf.Len() >= targetChunkBytes {
-			flushChunk()
+		// Markdown ATX heading starts a new hard segment (heading + following body pack until next hard start).
+		if isMarkdownHeading(raw) {
+			flush(lineNo-1, false)
+			segStart = lineNo
+			lines = []string{raw}
+			// Keep heading open so following body lines join this segment until blank/heading/page.
+			continue
+		}
+
+		if len(lines) == 0 {
+			segStart = lineNo
+		}
+		lines = append(lines, raw)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	flush(lineNo, false)
+
+	// Mark heading-led segments as hard starts (except the first).
+	for i := range segments {
+		if i == 0 {
+			continue
+		}
+		firstLine, _, _ := strings.Cut(segments[i].text, "\n")
+		if isMarkdownHeading(firstLine) {
+			segments[i].hardStart = true
 		}
 	}
-	flushChunk()
+	return segments, nil
+}
 
-	return chunks, nil
+func isMarkdownHeading(line string) bool {
+	s := strings.TrimLeft(line, " \t")
+	if s == "" || s[0] != '#' {
+		return false
+	}
+	n := 0
+	for n < len(s) && s[n] == '#' {
+		n++
+	}
+	if n == 0 || n > 6 {
+		return false
+	}
+	if n == len(s) {
+		return true
+	}
+	return s[n] == ' ' || s[n] == '\t'
+}
+
+func splitOversized(seg segment, target int) []segment {
+	if len(seg.text) <= target {
+		return []segment{seg}
+	}
+	var out []segment
+	text := seg.text
+	first := true
+	for len(text) > 0 {
+		n := target
+		if n > len(text) {
+			n = len(text)
+		}
+		// Prefer breaking at newline within the window.
+		if n < len(text) {
+			if i := strings.LastIndex(text[:n], "\n"); i > target/4 {
+				n = i + 1
+			} else {
+				// Avoid splitting a UTF-8 rune.
+				for n > 0 && !utf8.RuneStart(text[n]) {
+					n--
+				}
+				if n == 0 {
+					_, size := utf8.DecodeRuneInString(text)
+					n = size
+				}
+			}
+		}
+		piece := strings.TrimSpace(text[:n])
+		text = text[n:]
+		if piece == "" {
+			continue
+		}
+		out = append(out, segment{
+			lineStart: seg.lineStart,
+			lineEnd:   seg.lineEnd,
+			text:      piece,
+			hardStart: seg.hardStart && first,
+		})
+		first = false
+	}
+	if len(out) == 0 {
+		return []segment{seg}
+	}
+	return out
+}
+
+func overlapSuffix(text string, n int) string {
+	if n <= 0 || text == "" {
+		return ""
+	}
+	if len(text) <= n {
+		return text
+	}
+	start := len(text) - n
+	for start < len(text) && !utf8.RuneStart(text[start]) {
+		start++
+	}
+	// Prefer starting at a word/line boundary inside the suffix window.
+	suf := text[start:]
+	if i := strings.IndexAny(suf, " \n\t"); i >= 0 && i+1 < len(suf) {
+		suf = suf[i+1:]
+	}
+	return strings.TrimSpace(suf)
 }
 
 func trimSnippet(text string, max int) string {
