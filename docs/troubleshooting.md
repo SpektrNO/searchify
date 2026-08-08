@@ -43,3 +43,13 @@ export SEARCHIFY_EMBED_MODEL=mpnet-base-v2   # must match the model you want goi
 ```
 
 Keyword `mode=keyword` still works without re-embed. After a successful force embed, `index_status.embed_model` should match the env.
+
+## Chunk settings changed / odd retrieval boundaries
+
+Chunk packing uses `SEARCHIFY_CHUNK_BYTES` / `SEARCHIFY_CHUNK_OVERLAP` plus structure splits (Markdown headings, `\f` page breaks). The index does **not** auto-detect stale chunking — after changing those env vars (or upgrading chunk logic), rebuild:
+
+```bash
+./bin/searchify index --force <paths…>
+# if vectors needed:
+./bin/searchify embed --force
+```

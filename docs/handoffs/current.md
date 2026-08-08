@@ -1,41 +1,61 @@
-# Handoff: opt-better-chunking
+# Handoff: {{title}}
 
-**Status:** done  
-**Created:** 2026-08-08  
-**Specifier:** lean thin handoff  
-**Developer:** lean in-supervisor
+**Status:** spec | implementing | done | blocked  
+**Created:** {{date}}  
+**Specifier:** spec complete  
+**Developer:** pending
 
 ## GitHub tracking
 
 | Field | Value |
 |-------|-------|
-| Feature id | `opt-better-chunking` |
-| Parent issue | #47 — https://github.com/SpektrNO/searchify/issues/47 |
-| Open tasks | _(none)_ |
-| Closed | `spec` (#48), `engine` (#49), `verify` (#50), `docs` (#51) |
+| Feature id | `{{feature_id}}` |
+| Parent issue | #{{parent_number}} — {{parent_url}} |
+| Open tasks | `spec`, `engine`, … (update as closed) |
+
+Task order: `audit` → `spec` → `engine` → `verify` → `docs`
 
 ## Intent
 
-Improve retrieval chunking: tunable target size and overlap, structure-aware splits (Markdown headings, form-feed pages, paragraphs), and split oversized blocks. Changing chunk settings requires re-index (`index --force`) then re-embed as needed.
+One sentence: what capability this feature adds and why.
+
+## Technical contract
+
+| Area | Requirement |
+|------|-------------|
+| MCP tools | New or changed tool names, inputs, outputs |
+| Search mode | keyword / vector / hybrid |
+| Performance | Latency or throughput targets |
+| Acceptance | Observable pass/fail criteria |
+
+## Touchpoints
+
+- Files or packages likely to change (best guess; dev agent confirms)
+- Must not contradict [architecture.md](../architecture.md)
+
+## Out of scope
+
+What this handoff explicitly does **not** include.
+
+---
 
 ## Implementation result
 
+*(Developer agent fills this section.)*
+
 ### Changes
 
-- `SEARCHIFY_CHUNK_BYTES` (default 3072), `SEARCHIFY_CHUNK_OVERLAP` (default 256; must be `<` bytes).
-- Hard pack boundaries: Markdown ATX headings, `\f` page breaks; paragraph packing; oversized unit hard-split; overlap suffix carry.
-- Wired through `indexFile` via `ChunkParams`.
-- README / architecture / troubleshooting re-index story.
+- 
 
 ### Verification
 
-- [x] `go test ./...` (chunk unit tests for headings, form-feed, overlap, oversized)
-- [ ] Manual: re-index vault with new defaults and spot-check section-aligned hits
+- [ ] How tested
+- [ ] What remains manual
 
-### Deviations
+### Deviations from spec
 
-- None material.
+- None / list with rationale
 
 ### Follow-ups
 
-- Token-based sizing; store chunk params in meta for stale detection (`opt-embed-engine-adapter` unrelated).
+- 
