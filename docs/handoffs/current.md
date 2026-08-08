@@ -1,9 +1,9 @@
 # Handoff: opt-better-embeddings
 
-**Status:** spec  
+**Status:** implementing  
 **Created:** 2026-08-08  
 **Specifier:** lean thin handoff  
-**Developer:** pending
+**Developer:** lean in-supervisor
 
 ## GitHub tracking
 
@@ -12,7 +12,7 @@
 | Feature id | `opt-better-embeddings` |
 | Parent issue | #42 — https://github.com/SpektrNO/searchify/issues/42 |
 | Open tasks | `engine` (#44), `verify` (#45), `docs` (#46) |
-| Spec task | #43 (closing with this handoff) |
+| Closed | `spec` (#43) |
 
 Task order: `spec` → `engine` → `verify` → `docs`
 

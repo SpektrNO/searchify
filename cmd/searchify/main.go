@@ -432,6 +432,7 @@ environment:
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank
   SEARCHIFY_HTTP_TOKEN         Required Bearer token for HTTP transport
   SEARCHIFY_HTTP_ADDR          Default listen address for serve http (:8080)
-  SEARCHIFY_EMBED_MODEL        Embedding model name (default: minilm-l6-v2)
+  SEARCHIFY_EMBED_MODEL        Embedding model: minilm-l6-v2 (default), mpnet-base-v2, distilbert-base
+                               After changing model, run: searchify embed --force
 `)
 }
