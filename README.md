@@ -41,6 +41,41 @@ Stdio remains the recommended Cursor transport for local use.
 
 - Go 1.25+ (required by MCP Go SDK)
 - `SEARCHIFY_ROOTS` environment variable
+- **Poppler** (`pdftotext` on `PATH`) — strongly recommended for PDF indexing (avoids pure-Go PDF hangs/OOM). Optional but needed for reliable PDF text extract; PDF OCR also needs `pdftoppm` (+ Tesseract when `SEARCHIFY_OCR=1`).
+
+### Install Poppler
+
+**Ubuntu / Debian**
+
+```bash
+sudo apt install poppler-utils
+pdftotext -v
+```
+
+**Windows**
+
+Scoop:
+
+```bat
+scoop install poppler
+pdftotext -v
+```
+
+Chocolatey (admin CMD/PowerShell):
+
+```bat
+choco install poppler
+pdftotext -v
+```
+
+Manual:
+
+1. Download a Windows build from [oschwartz10612/poppler-windows releases](https://github.com/oschwartz10612/poppler-windows/releases) (`Release-*.zip`).
+2. Unzip somewhere stable (e.g. `C:\Apps\poppler`).
+3. Add the folder that contains `pdftotext.exe` (usually `Library\bin`) to your user **PATH**.
+4. Open a **new** CMD/PowerShell window and run `pdftotext -v`.
+
+Searchify must see `pdftotext` in the same environment as `searchify.exe` (restart the terminal after changing PATH).
 
 ## Build
 
@@ -150,12 +185,10 @@ Typical flow:
 
 CLI `index` prints progress on **stderr** (`[i/N] indexing …`) so long catalogues are distinguishable from a hang; the final `indexed=` line is on stdout.
 
-**Large corpora / Windows OOM:** the ONNX embedder (kjarni) can grow native RSS into many GB. Default `SEARCHIFY_EMBED_BACKEND=process` keeps ONNX out of the long-lived index process (spawns `searchify embed --file` per file). Alternatives:
-
 **Large corpora / Windows OOM:** two separate risks:
 
 1. **ONNX embeds** — use `--skip-embed` for FTS first; vectors later via `searchify embed` / `SEARCHIFY_EMBED_BACKEND=process`.
-2. **PDF/Office parsers** — by default index runs them in a **short-lived `searchify extract` worker** so parent RAM does not ratchet. PDF text prefers **`pdftotext`** (install Poppler / poppler-utils). Pathological PDFs time out and are **skipped** so indexing continues. (Set `SEARCHIFY_EXTRACT_INPROCESS=1` only for debugging.)
+2. **PDF/Office parsers** — by default index runs them in a **short-lived `searchify extract` worker** so parent RAM does not ratchet. PDF text prefers **`pdftotext`** ([Install Poppler](#install-poppler)). Pathological PDFs time out and are **skipped** so indexing continues. (Set `SEARCHIFY_EXTRACT_INPROCESS=1` only for debugging.)
 
 ```bash
 # Full vault, keyword-only, PDF/Office via extract workers (recommended first pass)
@@ -168,8 +201,6 @@ searchify index --skip-embed "C:\path\to\vault"
 #   PDF/Office/HTML extract in short-lived worker
 # A stuck PDF shows skip after the timeout, then the next file continues.
 ```
-
-On Windows, install Poppler so `pdftotext` is on `PATH` (much safer than the pure-Go PDF fallback).
 
 `--text-only` is optional (text/code extensions only) for diagnosis — not required for normal vault indexing.
 
