@@ -69,6 +69,10 @@ func (s *Service) spawnExtractFile(ctx context.Context, path string) (string, []
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			// Parent killed the worker on SEARCHIFY_EXTRACT_TIMEOUT — skip file, keep indexing.
+			return "", nil, extract.Skip("extract timed out or cancelled")
+		}
 		msg := strings.TrimSpace(stderr.String())
 		if msg == "" {
 			msg = err.Error()

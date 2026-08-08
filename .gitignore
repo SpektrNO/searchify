@@ -19,6 +19,11 @@ coverage.html
 credentials.json
 secrets/
 
+# Local debug samples (do not commit customer PDFs)
+Welcome to Experis_subcontractors.pdf
+*.pdf
+!internal/**/*.pdf
+
 # Cursor MCP config may inline API keys in env; keep mcp.json.example
 .cursor/mcp.json
 

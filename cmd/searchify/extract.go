@@ -65,6 +65,10 @@ func runExtract(args []string) {
 			writeExtractFail(skip.Error(), warn, true)
 			os.Exit(0)
 		}
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			writeExtractFail("extract timed out", warn, true)
+			os.Exit(0)
+		}
 		writeExtractFail(err.Error(), warn, false)
 		os.Exit(1)
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/spektr/searchify/internal/config"
+	"github.com/spektr/searchify/internal/extract"
 	"github.com/spektr/searchify/internal/search"
 	"github.com/xuri/excelize/v2"
 )
@@ -179,6 +180,52 @@ func TestExtractWorkerSpawnIndexesPDF(t *testing.T) {
 	}
 	if len(res.Results) == 0 {
 		t.Fatal("expected keyword hit from extract-worker text")
+	}
+}
+
+func TestExtractTimeoutFromWorkerIsSkip(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "x.pdf")
+	if err := os.WriteFile(path, []byte("%PDF-1.1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Roots:            []string{root},
+		IndexDir:         filepath.Join(t.TempDir(), "index"),
+		EmbedModel:       "stub",
+		SkipEmbed:        true,
+		MaxFileBytes:     1024 * 1024,
+		MaxExtractBytes:  1024 * 1024,
+		MaxChunksPerFile: 64,
+		ExtractTimeout:   time.Second,
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+	svc.spawnExtractForTest = func(p string) (string, []string, error) {
+		return "", nil, extract.Skip("extract timed out or cancelled")
+	}
+
+	report, err := svc.IndexPaths([]string{path}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Indexed != 0 || report.Errors != 0 {
+		t.Fatalf("indexed=%d errors=%d msgs=%v", report.Indexed, report.Errors, report.Messages)
+	}
+	if report.Skipped != 0 {
+		// skip status from progress; IndexReport.Skipped is mtime skips only
+	}
+	found := false
+	for _, m := range report.Messages {
+		if strings.Contains(m, "timed out") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected timeout skip message, got %v", report.Messages)
 	}
 }
 

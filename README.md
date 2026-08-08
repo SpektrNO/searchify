@@ -155,17 +155,21 @@ CLI `index` prints progress on **stderr** (`[i/N] indexing …`) so long catalog
 **Large corpora / Windows OOM:** two separate risks:
 
 1. **ONNX embeds** — use `--skip-embed` for FTS first; vectors later via `searchify embed` / `SEARCHIFY_EMBED_BACKEND=process`.
-2. **PDF/Office parsers** — by default index runs them in a **short-lived `searchify extract` worker** so parent RAM does not ratchet. (Set `SEARCHIFY_EXTRACT_INPROCESS=1` only for debugging.)
+2. **PDF/Office parsers** — by default index runs them in a **short-lived `searchify extract` worker** so parent RAM does not ratchet. PDF text prefers **`pdftotext`** (install Poppler / poppler-utils). Pathological PDFs time out and are **skipped** so indexing continues. (Set `SEARCHIFY_EXTRACT_INPROCESS=1` only for debugging.)
 
 ```bash
 # Full vault, keyword-only, PDF/Office via extract workers (recommended first pass)
 set SEARCHIFY_INDEX_DIR=C:\temp\searchify-fts
+set SEARCHIFY_EXTRACT_TIMEOUT=20s
 searchify index --skip-embed "C:\path\to\vault"
 
 # Confirm stderr includes:
 #   keyword-only — ONNX/embedder will NOT load
 #   PDF/Office/HTML extract in short-lived worker
+# A stuck PDF shows skip after the timeout, then the next file continues.
 ```
+
+On Windows, install Poppler so `pdftotext` is on `PATH` (much safer than the pure-Go PDF fallback).
 
 `--text-only` is optional (text/code extensions only) for diagnosis — not required for normal vault indexing.
 
