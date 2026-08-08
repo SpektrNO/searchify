@@ -5,6 +5,7 @@ Hybrid text search MCP server written in Go. Search local files, indexed corpora
 ## Docs
 
 - [Architecture](docs/architecture.md)
+- [Troubleshooting](docs/troubleshooting.md)
 - [Feature backlog](docs/feature-backlog.md)
 - [Feature completed](docs/feature-completed.md)
 - [GitHub workflow](docs/github-workflow.md)
