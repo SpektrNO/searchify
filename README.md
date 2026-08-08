@@ -77,6 +77,32 @@ Manual:
 
 Searchify must see `pdftotext` in the same environment as `searchify.exe` (restart the terminal after changing PATH).
 
+### Windows env batch file
+
+To avoid retyping variables each session, copy the example and edit paths:
+
+```bat
+copy scripts\searchify-env.example.bat C:\Apps\searchify-env.bat
+notepad C:\Apps\searchify-env.bat
+```
+
+Then in CMD:
+
+```bat
+cd /d C:\Apps
+call searchify-env.bat
+searchify.exe index --skip-embed "%SEARCHIFY_ROOTS%"
+```
+
+Optional one-shot indexer (also copy next to `searchify.exe`):
+
+```bat
+copy scripts\searchify-index.example.bat C:\Apps\searchify-index.bat
+C:\Apps\searchify-index.bat
+```
+
+`call` is required so variables stay in your current CMD window. Use `set "NAME=value"` in the bat (quotes around the whole assignment); do not put quotes inside the value.
+
 ## Build
 
 ```bash
