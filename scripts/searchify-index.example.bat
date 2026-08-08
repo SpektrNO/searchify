@@ -17,6 +17,10 @@ call "%~dp0searchify-env.bat"
 if errorlevel 1 exit /b 1
 
 echo.
-echo Indexing %SEARCHIFY_ROOTS% ...
-searchify.exe index --skip-embed %*
+echo Indexing "%SEARCHIFY_ROOTS%" ...
+if "%~1"=="" (
+  searchify.exe index --skip-embed "%SEARCHIFY_ROOTS%"
+) else (
+  searchify.exe index --skip-embed %*
+)
 if errorlevel 1 exit /b 1
