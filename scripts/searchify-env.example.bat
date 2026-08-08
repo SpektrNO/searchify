@@ -26,6 +26,9 @@ REM --- optional: HTTP serve ---
 REM set "SEARCHIFY_HTTP_TOKEN=dev-secret"
 REM set "SEARCHIFY_HTTP_ADDR=127.0.0.1:8080"
 
+REM --- optional: LangSearch (search_web + local search rerank=true) ---
+REM set "LANGSEARCH_API_KEY=sk-your-key-here"
+
 REM --- optional: relative path base / watch ---
 REM set "SEARCHIFY_PATH_BASE=%SEARCHIFY_ROOTS%"
 REM set "SEARCHIFY_WATCH_PATHS=%SEARCHIFY_ROOTS%"
@@ -34,4 +37,5 @@ echo SEARCHIFY_ROOTS=%SEARCHIFY_ROOTS%
 echo SEARCHIFY_INDEX_DIR=%SEARCHIFY_INDEX_DIR%
 echo SEARCHIFY_SKIP_EMBED=%SEARCHIFY_SKIP_EMBED%
 echo SEARCHIFY_EXTRACT_TIMEOUT=%SEARCHIFY_EXTRACT_TIMEOUT%
+if defined LANGSEARCH_API_KEY (echo LANGSEARCH_API_KEY: set) else (echo LANGSEARCH_API_KEY: not set)
 where pdftotext >nul 2>&1 && (echo pdftotext: OK) || (echo pdftotext: NOT on PATH — install Poppler for safer PDF extract)
