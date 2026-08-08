@@ -93,6 +93,9 @@ Then in CMD:
 cd /d C:\Apps
 call searchify-env.bat
 searchify.exe index --skip-embed "%SEARCHIFY_ROOTS%"
+REM later, vectors (and after CHUNK_* / EMBED_MODEL changes):
+REM set "SEARCHIFY_SKIP_EMBED=0"
+REM searchify.exe embed --force
 ```
 
 Optional one-shot indexer (also copy next to `searchify.exe`):
