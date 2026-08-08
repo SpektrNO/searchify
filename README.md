@@ -296,6 +296,8 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_MAX_FILE_BYTES` | no | Skip source files larger than this during index (default `2097152` / 2 MiB) |
 | `SEARCHIFY_MAX_EXTRACT_BYTES` | no | Truncate extracted text before chunking (default `524288` / 512 KiB) |
 | `SEARCHIFY_MAX_CHUNKS_PER_FILE` | no | Max chunks embedded per file (default `64`) |
+| `SEARCHIFY_CHUNK_BYTES` | no | Soft target chunk size in bytes (default `3072`) |
+| `SEARCHIFY_CHUNK_OVERLAP` | no | Overlap between consecutive chunks in bytes (default `256`; must be `< CHUNK_BYTES`) |
 | `SEARCHIFY_EMBED_BATCH` | no | ONNX batch size (default `1`) |
 | `SEARCHIFY_EMBED_BACKEND` | no | `process` (default: spawn `searchify embed` per file), `onnx` (in-process), `none` (FTS only) |
 | `SEARCHIFY_SKIP_EMBED` | no | `1`/`true` — FTS/keyword index only; **do not load ONNX** (same idea as `EMBED_BACKEND=none`) |
@@ -329,7 +331,9 @@ Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.y
 
 Extracted formats: `.pdf` `.docx` `.xlsx` `.csv` `.html`/`.htm`, plus stretch `.pptx` `.odt`/`.ods`/`.odp` `.rtf` `.eml`. Images (`.png` `.jpg` `.jpeg` `.webp` `.tif` `.tiff` `.gif`) index only when `SEARCHIFY_OCR=1`. Other extensions are ignored. `index_status` reports `ocr_enabled` and `index_extensions`.
 
-Indexing caps memory via `SEARCHIFY_MAX_FILE_BYTES` (default 2 MiB), `SEARCHIFY_MAX_EXTRACT_BYTES` (512 KiB), `SEARCHIFY_MAX_CHUNKS_PER_FILE` (64), batched embeds (`SEARCHIFY_EMBED_BATCH`, default 1), default `SEARCHIFY_EMBED_BACKEND=process` (short-lived embed worker), optional `SEARCHIFY_SKIP_EMBED` / `index --skip-embed` / `backend=none` (FTS only), and embedder reload when `backend=onnx` (`SEARCHIFY_EMBED_RELOAD`, default on).
+Indexing caps memory via `SEARCHIFY_MAX_FILE_BYTES` (default 2 MiB), `SEARCHIFY_MAX_EXTRACT_BYTES` (512 KiB), `SEARCHIFY_MAX_CHUNKS_PER_FILE` (64), chunk packing via `SEARCHIFY_CHUNK_BYTES` / `SEARCHIFY_CHUNK_OVERLAP` (Markdown headings + `\f` page breaks as hard boundaries), batched embeds (`SEARCHIFY_EMBED_BATCH`, default 1), default `SEARCHIFY_EMBED_BACKEND=process` (short-lived embed worker), optional `SEARCHIFY_SKIP_EMBED` / `index --skip-embed` / `backend=none` (FTS only), and embedder reload when `backend=onnx` (`SEARCHIFY_EMBED_RELOAD`, default on).
+
+After changing chunk size/overlap (or to rebuild structure-aware splits), re-index with `searchify index --force` (then `searchify embed --force` if vectors were skipped or need refresh).
 
 ### `remove_paths`
 

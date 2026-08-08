@@ -273,7 +273,10 @@ func (s *Service) deleteFileChunks(path string) error {
 }
 
 func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (string, error) {
-	chunks, err := chunkFile(content)
+	chunks, err := chunkFile(content, ChunkParams{
+		TargetBytes:  s.cfg.ChunkBytes,
+		OverlapBytes: s.cfg.ChunkOverlap,
+	})
 	if err != nil {
 		return "", err
 	}

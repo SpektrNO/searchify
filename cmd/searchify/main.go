@@ -422,6 +422,8 @@ environment:
   SEARCHIFY_MAX_FILE_BYTES     Skip source files larger than this (default 2097152)
   SEARCHIFY_MAX_EXTRACT_BYTES  Truncate extracted text (default 524288)
   SEARCHIFY_MAX_CHUNKS_PER_FILE Max chunks per file (default 64)
+  SEARCHIFY_CHUNK_BYTES        Soft target chunk size in bytes (default 3072)
+  SEARCHIFY_CHUNK_OVERLAP      Overlap bytes between chunks (default 256; must be < CHUNK_BYTES)
   SEARCHIFY_EMBED_BATCH        Embedding batch size (default 1)
   SEARCHIFY_EMBED_BACKEND      none|onnx|process (default process: spawn embed worker)
   SEARCHIFY_SKIP_EMBED         1=FTS only, skip ONNX (low RAM; same idea as backend=none)
