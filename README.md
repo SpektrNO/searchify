@@ -259,9 +259,23 @@ export SEARCHIFY_INDEX_DIR="/tmp/searchify-index"   # optional
 # Optional: backfill / repair vectors without re-extracting
 ./bin/searchify embed docs/
 # files=N embedded=N skipped=N errors=N
+
+# Higher-quality embeddings (kjarni): set model then force re-embed
+# export SEARCHIFY_EMBED_MODEL=mpnet-base-v2   # or distilbert-base; default minilm-l6-v2
+# ./bin/searchify embed --force
 ```
 
 Then use MCP tools `search_local` and `index_status` from Cursor.
+
+### Embedding models
+
+| `SEARCHIFY_EMBED_MODEL` | Dims | Notes |
+|-------------------------|------|--------|
+| `minilm-l6-v2` (default) | 384 | Fast, lower quality |
+| `mpnet-base-v2` | 768 | Better semantic retrieval; larger download/RSS |
+| `distilbert-base` | 768 | Alternate 768-d model |
+
+Changing the model clears existing `chunk_vectors` on the next embed/index write (dimensions must not mix). Prefer a full `searchify embed --force` after switching. Vector/hybrid search errors if the index meta model disagrees with the env until you rebuild. Keyword search is unaffected. Models download on first use via kjarni.
 
 ## Cursor configuration
 
@@ -292,7 +306,7 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
 | `SEARCHIFY_HTTP_TOKEN` | for HTTP | Bearer token (required to start `serve http`) |
 | `SEARCHIFY_HTTP_ADDR` | no | Default listen address (`:8080`) |
-| `SEARCHIFY_EMBED_MODEL` | no | Embedding model (default: `minilm-l6-v2`) |
+| `SEARCHIFY_EMBED_MODEL` | no | Embedding model: `minilm-l6-v2` (default), `mpnet-base-v2`, `distilbert-base` — after change run `searchify embed --force` |
 
 ## MCP tools
 

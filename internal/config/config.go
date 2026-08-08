@@ -160,6 +160,10 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	embedModel, err := ValidateEmbedModel(os.Getenv(EnvEmbedModel))
+	if err != nil {
+		return nil, err
+	}
 
 	return &Config{
 		Roots:            roots,
@@ -167,7 +171,7 @@ func Load() (*Config, error) {
 		LangSearch:       os.Getenv(EnvLangSearch),
 		HTTPToken:        os.Getenv(EnvHTTPToken),
 		HTTPAddr:         defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
-		EmbedModel:       defaultString(os.Getenv(EnvEmbedModel), defaultEmbedModel),
+		EmbedModel:       embedModel,
 		PathBase:         pathBase,
 		WatchPaths:       watchPaths,
 		WatchDebounce:    debounce,

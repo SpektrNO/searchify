@@ -13,7 +13,7 @@ import (
 
 const (
 	serverName    = "searchify"
-	serverVersion = "0.8.2"
+	serverVersion = "0.8.3"
 )
 
 type Server struct {

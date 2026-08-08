@@ -38,6 +38,11 @@ type EmbedOptions struct {
 // Prefer invoking via CLI `searchify embed` so the process can exit and free native RSS.
 func (s *Service) EmbedFiles(paths []string, opts EmbedOptions) (EmbedReport, error) {
 	report := EmbedReport{}
+	cleared, err := s.reconcileEmbedModelForWrite()
+	if err != nil {
+		return report, err
+	}
+	force := opts.Force || cleared
 	files, err := s.filesForEmbed(paths)
 	if err != nil {
 		return report, err
@@ -48,7 +53,7 @@ func (s *Service) EmbedFiles(paths []string, opts EmbedOptions) (EmbedReport, er
 	for i, path := range files {
 		n := i + 1
 		s.emitEmbedProgress(opts.Progress, EmbedProgress{Current: n, Total: len(files), Path: path, Status: "start"})
-		nEmb, err := s.embedFileChunks(path, opts.Force)
+		nEmb, err := s.embedFileChunks(path, force)
 		if err != nil {
 			report.Errors++
 			report.addEmbedMessage(fmt.Sprintf("%s: %v", path, err))

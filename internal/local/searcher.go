@@ -200,6 +200,9 @@ func (s *Service) searchVector(query string, limit int) ([]search.Result, error)
 	if err := s.requireIndex(); err != nil {
 		return nil, err
 	}
+	if err := s.requireMatchingEmbedModel(); err != nil {
+		return nil, err
+	}
 
 	vectorCount, err := s.VectorCount()
 	if err != nil {
@@ -314,6 +317,9 @@ func (s *Service) searchKeywordCandidates(query string, limit int) ([]rank.Ranke
 }
 
 func (s *Service) searchVectorCandidates(query string, limit int) ([]rank.RankedItem, error) {
+	if err := s.requireMatchingEmbedModel(); err != nil {
+		return nil, err
+	}
 	vectorCount, err := s.VectorCount()
 	if err != nil {
 		return nil, err

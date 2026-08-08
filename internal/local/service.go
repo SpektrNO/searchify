@@ -332,6 +332,10 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 		return warn, nil
 	}
 
+	if _, err := s.reconcileEmbedModelForWrite(); err != nil {
+		return warn, err
+	}
+
 	switch {
 	case s.cfg.UseProcessEmbed():
 		if err := s.runEmbedWorker(path); err != nil {
