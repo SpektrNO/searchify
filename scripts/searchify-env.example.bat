@@ -28,6 +28,9 @@ REM --- chunking (structure-aware; after change: index --force then embed --forc
 REM set "SEARCHIFY_CHUNK_BYTES=3072"
 REM set "SEARCHIFY_CHUNK_OVERLAP=256"
 
+REM --- search snippets (default 300; per-query snippet_max also works) ---
+REM set "SEARCHIFY_SNIPPET_CHARS=1200"
+
 REM --- embeddings (unset SKIP_EMBED / use embed CLI when ready for vectors) ---
 REM set "SEARCHIFY_SKIP_EMBED=0"
 REM set "SEARCHIFY_EMBED_BACKEND=process"

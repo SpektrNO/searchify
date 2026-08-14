@@ -16,9 +16,10 @@ const (
 )
 
 type SearchParams struct {
-	Query string
-	Limit int
-	Mode  search.Mode
+	Query      string
+	Limit      int
+	Mode       search.Mode
+	SnippetMax int // 0 = use SEARCHIFY_SNIPPET_CHARS / default 300
 }
 
 // LegTiming is best-effort per-leg timing for search_local breakdowns.
@@ -48,6 +49,7 @@ func (s *Service) DefaultMode() (search.Mode, error) {
 
 func (s *Service) Search(params SearchParams) (SearchOutcome, error) {
 	limit := normalizeLimit(params.Limit)
+	snippetMax := s.cfg.ResolveSnippetChars(params.SnippetMax)
 	mode := params.Mode
 	if mode == "" {
 		var err error
@@ -60,7 +62,7 @@ func (s *Service) Search(params SearchParams) (SearchOutcome, error) {
 	switch mode {
 	case search.ModeKeyword:
 		start := time.Now()
-		results, err := s.searchKeyword(params.Query, limit)
+		results, err := s.searchKeyword(params.Query, limit, snippetMax)
 		if err != nil {
 			return SearchOutcome{}, err
 		}
@@ -71,7 +73,7 @@ func (s *Service) Search(params SearchParams) (SearchOutcome, error) {
 		}, nil
 	case search.ModeVector:
 		start := time.Now()
-		results, err := s.searchVector(params.Query, limit)
+		results, err := s.searchVector(params.Query, limit, snippetMax)
 		if err != nil {
 			return SearchOutcome{}, err
 		}
@@ -81,7 +83,7 @@ func (s *Service) Search(params SearchParams) (SearchOutcome, error) {
 			Timing:  LegTiming{VectorMs: elapsedMs(start)},
 		}, nil
 	case search.ModeHybrid:
-		results, timing, err := s.searchHybridTimed(params.Query, limit)
+		results, timing, err := s.searchHybridTimed(params.Query, limit, snippetMax)
 		if err != nil {
 			return SearchOutcome{}, err
 		}
@@ -178,7 +180,7 @@ func (s *Service) Status() (search.IndexStatus, error) {
 	return status, nil
 }
 
-func (s *Service) searchKeyword(query string, limit int) ([]search.Result, error) {
+func (s *Service) searchKeyword(query string, limit, snippetMax int) ([]search.Result, error) {
 	if err := s.requireIndex(); err != nil {
 		return nil, err
 	}
@@ -201,10 +203,10 @@ func (s *Service) searchKeyword(query string, limit int) ([]search.Result, error
 	}
 	defer rows.Close()
 
-	return scanSearchResults(rows, limit)
+	return scanSearchResults(rows, limit, snippetMax)
 }
 
-func (s *Service) searchVector(query string, limit int) ([]search.Result, error) {
+func (s *Service) searchVector(query string, limit, snippetMax int) ([]search.Result, error) {
 	if err := s.requireIndex(); err != nil {
 		return nil, err
 	}
@@ -241,10 +243,10 @@ func (s *Service) searchVector(query string, limit int) ([]search.Result, error)
 		ids = append(ids, hit.chunkID)
 		scores[hit.chunkID] = float64(hit.score)
 	}
-	return s.resultsByChunkIDs(ids, scores)
+	return s.resultsByChunkIDs(ids, scores, snippetMax)
 }
 
-func (s *Service) searchHybridTimed(query string, limit int) ([]search.Result, LegTiming, error) {
+func (s *Service) searchHybridTimed(query string, limit, snippetMax int) ([]search.Result, LegTiming, error) {
 	if err := s.requireIndex(); err != nil {
 		return nil, LegTiming{}, err
 	}
@@ -282,7 +284,7 @@ func (s *Service) searchHybridTimed(query string, limit int) ([]search.Result, L
 		ids = append(ids, item.ID)
 		scores[item.ID] = item.Score
 	}
-	results, err := s.resultsByChunkIDs(ids, scores)
+	results, err := s.resultsByChunkIDs(ids, scores, snippetMax)
 	if err != nil {
 		return nil, LegTiming{}, err
 	}
@@ -358,7 +360,7 @@ func (s *Service) searchVectorCandidates(query string, limit int) ([]rank.Ranked
 	return items, nil
 }
 
-func (s *Service) resultsByChunkIDs(ids []string, scores map[string]float64) ([]search.Result, error) {
+func (s *Service) resultsByChunkIDs(ids []string, scores map[string]float64, snippetMax int) ([]search.Result, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -393,7 +395,7 @@ func (s *Service) resultsByChunkIDs(ids []string, scores map[string]float64) ([]
 			ID:      id,
 			Title:   fmt.Sprintf("%s:%d", base, lineStart),
 			Path:    filePath,
-			Snippet: trimSnippet(text, 300),
+			Snippet: trimSnippet(text, snippetMax),
 			Score:   scores[id],
 			Source:  "local",
 			Line:    lineStart,
@@ -416,7 +418,7 @@ func scanSearchResults(rows interface {
 	Next() bool
 	Scan(dest ...any) error
 	Err() error
-}, limit int) ([]search.Result, error) {
+}, limit, snippetMax int) ([]search.Result, error) {
 	results := make([]search.Result, 0, limit)
 	for rows.Next() {
 		var id, filePath, text string
@@ -430,7 +432,7 @@ func scanSearchResults(rows interface {
 			ID:      id,
 			Title:   fmt.Sprintf("%s:%d", base, lineStart),
 			Path:    filePath,
-			Snippet: trimSnippet(text, 300),
+			Snippet: trimSnippet(text, snippetMax),
 			Score:   score,
 			Source:  "local",
 			Line:    lineStart,

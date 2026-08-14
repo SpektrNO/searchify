@@ -180,7 +180,7 @@ curl -sS -X POST http://127.0.0.1:8080/v1/index \
 curl -sS -X POST http://127.0.0.1:8080/v1/search \
   -H "Authorization: Bearer dev-secret" \
   -H "Content-Type: application/json" \
-  -d '{"query":"path allowlist","mode":"hybrid","limit":10}'
+  -d '{"query":"path allowlist","mode":"hybrid","limit":10,"snippet_max":1200}'
 
 # List indexed file paths (optional ?prefix=)
 curl -sS "http://127.0.0.1:8080/v1/files" \
@@ -193,7 +193,7 @@ curl -sS "http://127.0.0.1:8080/v1/stats" \
 
 | Method | Path | Body / query |
 |--------|------|------|
-| `POST` | `/v1/search` | `query`, optional `limit`, `mode`, `rerank` |
+| `POST` | `/v1/search` | `query`, optional `limit`, `mode`, `rerank`, `snippet_max` |
 | `POST` | `/v1/index` | `paths`, optional `force` |
 | `GET` | `/v1/files` | optional `prefix` query (exact path or directory prefix) |
 | `GET` | `/v1/stats` | — (`file_count`, `folder_count`, `vector_chunk_count`, `total_bytes`, `last_index_change`) |
@@ -303,7 +303,7 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `SEARCHIFY_ROOTS` | yes | Comma-separated allowed directory roots |
+| `SEARCHIFY_ROOTS` | yes | Comma-separated allowed directory roots (nested entries collapse to the outermost root) |
 | `SEARCHIFY_INDEX_DIR` | no | Index path (default: `~/.searchify/index`) |
 | `SEARCHIFY_PATH_BASE` | no | Preferred base for relative tool/CLI paths (must be under a root) |
 | `SEARCHIFY_WATCH_PATHS` | no | Comma-separated paths to auto-index (under roots); empty disables watch |
@@ -316,6 +316,7 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_MAX_CHUNKS_PER_FILE` | no | Max chunks embedded per file (default `64`) |
 | `SEARCHIFY_CHUNK_BYTES` | no | Soft target chunk size in bytes (default `3072`) |
 | `SEARCHIFY_CHUNK_OVERLAP` | no | Overlap between consecutive chunks in bytes (default `256`; must be `< CHUNK_BYTES`) |
+| `SEARCHIFY_SNIPPET_CHARS` | no | Default search snippet max characters (default `300`, max `8000`; overridable per query via `snippet_max`) |
 | `SEARCHIFY_EMBED_BATCH` | no | ONNX batch size (default `1`) |
 | `SEARCHIFY_EMBED_BACKEND` | no | `process` (default: spawn `searchify embed` per file), `onnx` (in-process), `none` (FTS only) |
 | `SEARCHIFY_EMBED_ENGINE` | no | Vector factory: `kjarni` (default), `ollama`, `http` |
@@ -391,11 +392,12 @@ Search the persisted index. Default mode is `hybrid` when vectors exist, otherwi
   "query": "how does path allowlisting work",
   "mode": "hybrid",
   "limit": 10,
-  "rerank": false
+  "rerank": false,
+  "snippet_max": 1200
 }
 ```
 
-Modes: `keyword` (FTS5 BM25), `vector` (cosine similarity), `hybrid` (RRF fusion). Set `rerank: true` to reorder results with LangSearch (requires `LANGSEARCH_API_KEY`).
+Modes: `keyword` (FTS5 BM25), `vector` (cosine similarity), `hybrid` (RRF fusion). Set `rerank: true` to reorder results with LangSearch (requires `LANGSEARCH_API_KEY`). Optional `snippet_max` overrides `SEARCHIFY_SNIPPET_CHARS` (default 300, hard max 8000).
 
 Responses include `duration_ms` (wall clock). `search_local` also returns a `timing` breakdown (`keyword_ms` / `vector_ms` / `rrf_ms` / `rerank_ms`) for the legs that ran.
 

@@ -64,7 +64,8 @@ Hybrid text-search MCP server in Go.
 - Index inventory: MCP `list_indexed_files` / REST `GET /v1/files`; MCP `index_stats` / REST `GET /v1/stats` (`file_count`, `folder_count`, `vector_chunk_count`, `total_bytes`, `last_index_change`)
 - Deletions: MCP/CLI `remove_paths` / `searchify remove`; reconcile orphans with `index_prune` / `searchify prune` (`opt-index-prune`)
 - Auto-index: optional `SEARCHIFY_WATCH_PATHS` fsnotify (+ optional `SEARCHIFY_WATCH_RESCAN`) starts with `mcp stdio` / `serve http`
-- Path UX: relative paths resolve via `SEARCHIFY_PATH_BASE` then roots (no process CWD); absolute paths must stay under roots
+- Path UX: relative paths resolve via `SEARCHIFY_PATH_BASE` then roots (no process CWD); absolute paths must stay under roots. Nested `SEARCHIFY_ROOTS` entries are collapsed to outermost roots so the same tree is not walked twice.
+- Snippets: default max is `SEARCHIFY_SNIPPET_CHARS` (300); per-query `snippet_max` on `search_local` / `POST /v1/search` (hard cap 8000)
 - File types: pluggable extractors (`internal/extract`) index passthrough text/code plus PDF/DOCX/XLSX/CSV/HTML (and stretch PPTX/ODF/RTF/EML). Images and scanned-PDF OCR are optional via `SEARCHIFY_OCR` (Tesseract on `PATH`; `pdftoppm` for PDF OCR). Memory: `SEARCHIFY_MAX_FILE_BYTES` (default 2 MiB), extract/chunk caps, `SEARCHIFY_EMBED_BATCH` (default 1), `SEARCHIFY_EMBED_BACKEND` (`process` default / `onnx` / `none`), `SEARCHIFY_SKIP_EMBED` for FTS-only ingest, `SEARCHIFY_EMBED_RELOAD` (default on) when using in-process ONNX. See `opt-richer-file-types` (#24), `opt-embed-worker` (#36)
 - Observability: search/index tool responses include `duration_ms`; `search_local` adds per-leg `timing` (backlog was `opt-timing-metrics`)
 

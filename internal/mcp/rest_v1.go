@@ -17,10 +17,11 @@ type restErrorBody struct {
 }
 
 type restSearchRequest struct {
-	Query  string `json:"query"`
-	Limit  int    `json:"limit,omitempty"`
-	Mode   string `json:"mode,omitempty"`
-	Rerank bool   `json:"rerank,omitempty"`
+	Query      string `json:"query"`
+	Limit      int    `json:"limit,omitempty"`
+	Mode       string `json:"mode,omitempty"`
+	Rerank     bool   `json:"rerank,omitempty"`
+	SnippetMax int    `json:"snippet_max,omitempty"`
 }
 
 type restIndexRequest struct {
@@ -46,10 +47,11 @@ func (s *Server) handleV1Search(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	out, _, err := s.executeSearchLocal(r.Context(), searchLocalInput{
-		Query:  req.Query,
-		Limit:  req.Limit,
-		Mode:   req.Mode,
-		Rerank: req.Rerank,
+		Query:      req.Query,
+		Limit:      req.Limit,
+		Mode:       req.Mode,
+		Rerank:     req.Rerank,
+		SnippetMax: req.SnippetMax,
 	})
 	out.DurationMs = elapsedMs(start)
 	if err != nil {
@@ -151,9 +153,10 @@ func (s *Server) executeSearchLocal(ctx context.Context, input searchLocalInput)
 	}
 
 	outcome, err := s.local.Search(local.SearchParams{
-		Query: input.Query,
-		Limit: input.Limit,
-		Mode:  mode,
+		Query:      input.Query,
+		Limit:      input.Limit,
+		Mode:       mode,
+		SnippetMax: input.SnippetMax,
 	})
 	if err != nil {
 		return searchLocalOutput{}, "", fmt.Errorf("search failed: %w", err)

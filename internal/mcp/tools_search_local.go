@@ -13,10 +13,11 @@ import (
 )
 
 type searchLocalInput struct {
-	Query  string `json:"query" jsonschema:"search query"`
-	Limit  int    `json:"limit,omitempty" jsonschema:"maximum number of results (default 10, max 50)"`
-	Mode   string `json:"mode,omitempty" jsonschema:"search mode: keyword, vector, or hybrid (default hybrid when vectors exist)"`
-	Rerank bool   `json:"rerank,omitempty" jsonschema:"rerank results with LangSearch (requires LANGSEARCH_API_KEY)"`
+	Query      string `json:"query" jsonschema:"search query"`
+	Limit      int    `json:"limit,omitempty" jsonschema:"maximum number of results (default 10, max 50)"`
+	Mode       string `json:"mode,omitempty" jsonschema:"search mode: keyword, vector, or hybrid (default hybrid when vectors exist)"`
+	Rerank     bool   `json:"rerank,omitempty" jsonschema:"rerank results with LangSearch (requires LANGSEARCH_API_KEY)"`
+	SnippetMax int    `json:"snippet_max,omitempty" jsonschema:"max snippet characters (default SEARCHIFY_SNIPPET_CHARS or 300, max 8000)"`
 }
 
 type searchLocalTiming struct {

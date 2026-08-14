@@ -36,6 +36,7 @@ const (
 	EnvEmbedBackend     = "SEARCHIFY_EMBED_BACKEND"
 	EnvTextOnly         = "SEARCHIFY_TEXT_ONLY"
 	EnvExtractInProcess = "SEARCHIFY_EXTRACT_INPROCESS"
+	EnvSnippetChars     = "SEARCHIFY_SNIPPET_CHARS"
 
 	defaultEmbedModel      = "minilm-l6-v2"
 	defaultHTTPAddr        = ":8080"
@@ -49,6 +50,8 @@ const (
 	defaultChunkBytes      = 3072
 	defaultChunkOverlap    = 256
 	defaultEmbedBackend    = EmbedBackendProcess
+	defaultSnippetChars    = 300
+	maxSnippetChars        = 8000
 )
 
 // EmbedBackend selects how vectors are produced during/after index.
@@ -82,6 +85,7 @@ type Config struct {
 	MaxExtractBytes  int64 // truncate extracted text before chunking (default 512KiB)
 	ChunkBytes       int   // soft target chunk size in bytes (default 3072)
 	ChunkOverlap     int   // overlap bytes between consecutive chunks (default 256)
+	SnippetChars     int   // default search snippet max chars (default 300; overridable per query)
 	SkipEmbed        bool  // FTS-only index; skip ONNX (huge RAM savings)
 	EmbedReload      bool  // close/reopen embedder after each file to drop native RSS
 	EmbedBackend     EmbedBackend
@@ -191,6 +195,14 @@ func Load() (*Config, error) {
 	if chunkOverlap >= chunkBytes {
 		return nil, fmt.Errorf("%s (%d) must be < %s (%d)", EnvChunkOverlap, chunkOverlap, EnvChunkBytes, chunkBytes)
 	}
+	snippetChars, err := parseIntEnv(EnvSnippetChars, os.Getenv(EnvSnippetChars), defaultSnippetChars)
+	if err != nil {
+		return nil, err
+	}
+	snippetChars, err = ClampSnippetChars(snippetChars)
+	if err != nil {
+		return nil, err
+	}
 	backend, err := parseEmbedBackend(os.Getenv(EnvEmbedBackend))
 	if err != nil {
 		return nil, err
@@ -226,10 +238,11 @@ func Load() (*Config, error) {
 		MaxExtractBytes:  maxExtract,
 		ChunkBytes:       chunkBytes,
 		ChunkOverlap:     chunkOverlap,
+		SnippetChars:     snippetChars,
 		SkipEmbed:        parseBoolEnv(os.Getenv(EnvSkipEmbed)),
 		// Default ON: native ONNX RSS is not returned to the OS without Close.
-		EmbedReload:  parseBoolEnvDefaultTrue(os.Getenv(EnvEmbedReload)),
-		EmbedBackend: backend,
+		EmbedReload:      parseBoolEnvDefaultTrue(os.Getenv(EnvEmbedReload)),
+		EmbedBackend:     backend,
 		TextOnly:         parseBoolEnv(os.Getenv(EnvTextOnly)),
 		ExtractInProcess: parseBoolEnv(os.Getenv(EnvExtractInProcess)),
 	}, nil
@@ -267,7 +280,57 @@ func parseRoots(raw string) ([]string, error) {
 		return nil, fmt.Errorf("%s must contain at least one path", EnvRoots)
 	}
 
-	return roots, nil
+	// Drop nested roots (child of another root) so the same tree is not walked twice.
+	return dedupeNestedRoots(roots), nil
+}
+
+// dedupeNestedRoots keeps outermost roots only (exact dupes already removed).
+func dedupeNestedRoots(roots []string) []string {
+	if len(roots) < 2 {
+		return roots
+	}
+	out := make([]string, 0, len(roots))
+	for i, r := range roots {
+		nested := false
+		for j, other := range roots {
+			if i == j || r == other {
+				continue
+			}
+			if pathWithinRoot(r, other) {
+				nested = true
+				break
+			}
+		}
+		if !nested {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// ClampSnippetChars validates / clamps a snippet length (env or per-query).
+func ClampSnippetChars(n int) (int, error) {
+	if n <= 0 {
+		return defaultSnippetChars, nil
+	}
+	if n > maxSnippetChars {
+		return 0, fmt.Errorf("%s=%d exceeds max %d", EnvSnippetChars, n, maxSnippetChars)
+	}
+	return n, nil
+}
+
+// ResolveSnippetChars picks per-query override or config default.
+func (c *Config) ResolveSnippetChars(override int) int {
+	if override > 0 {
+		if n, err := ClampSnippetChars(override); err == nil {
+			return n
+		}
+		return maxSnippetChars
+	}
+	if c != nil && c.SnippetChars > 0 {
+		return c.SnippetChars
+	}
+	return defaultSnippetChars
 }
 
 func parsePathBase(raw string, roots []string) (string, error) {

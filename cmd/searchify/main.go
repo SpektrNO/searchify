@@ -412,6 +412,7 @@ usage:
 
 environment:
   SEARCHIFY_ROOTS              Required comma-separated allowed search roots
+                               (nested paths collapse to outermost root)
   SEARCHIFY_INDEX_DIR          Index storage path (default: ~/.searchify/index)
   SEARCHIFY_PATH_BASE          Preferred base for relative paths (under a root)
   SEARCHIFY_WATCH_PATHS        Optional auto-index watch paths (under roots)
@@ -424,6 +425,7 @@ environment:
   SEARCHIFY_MAX_CHUNKS_PER_FILE Max chunks per file (default 64)
   SEARCHIFY_CHUNK_BYTES        Soft target chunk size in bytes (default 3072)
   SEARCHIFY_CHUNK_OVERLAP      Overlap bytes between chunks (default 256; must be < CHUNK_BYTES)
+  SEARCHIFY_SNIPPET_CHARS      Default search snippet length (default 300, max 8000)
   SEARCHIFY_EMBED_BATCH        Embedding batch size (default 1)
   SEARCHIFY_EMBED_BACKEND      none|onnx|process (default process: spawn embed worker)
   SEARCHIFY_EMBED_ENGINE       kjarni (default) | ollama | http

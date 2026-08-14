@@ -397,3 +397,64 @@ func TestBuildFTSQuery(t *testing.T) {
 		t.Fatalf("got %q want %q", got, want)
 	}
 }
+
+func TestSearchSnippetMax(t *testing.T) {
+	root := t.TempDir()
+	docs := filepath.Join(root, "docs")
+	if err := os.MkdirAll(docs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "UNIQUE_SNIPPET_TOKEN " + strings.Repeat("x", 800)
+	if err := os.WriteFile(filepath.Join(docs, "long.md"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{
+		Roots:        []string{root},
+		IndexDir:     t.TempDir(),
+		EmbedModel:   "stub",
+		SkipEmbed:    true,
+		SnippetChars: 300,
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+
+	if _, err := svc.IndexPaths([]string{docs}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	short, err := svc.Search(SearchParams{Query: "UNIQUE_SNIPPET_TOKEN", Mode: search.ModeKeyword, Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(short.Results) == 0 {
+		t.Fatal("expected hit")
+	}
+	if len(short.Results[0].Snippet) > 303 { // 300 + "..."
+		t.Fatalf("default snippet too long: %d", len(short.Results[0].Snippet))
+	}
+
+	long, err := svc.Search(SearchParams{
+		Query:      "UNIQUE_SNIPPET_TOKEN",
+		Mode:       search.ModeKeyword,
+		Limit:      1,
+		SnippetMax: 600,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(long.Results) == 0 {
+		t.Fatal("expected hit")
+	}
+	if len(long.Results[0].Snippet) <= len(short.Results[0].Snippet) {
+		t.Fatalf("snippet_max=600 should be longer than default; got %d vs %d",
+			len(long.Results[0].Snippet), len(short.Results[0].Snippet))
+	}
+	if len(long.Results[0].Snippet) > 603 {
+		t.Fatalf("snippet_max=600 too long: %d", len(long.Results[0].Snippet))
+	}
+}
+
