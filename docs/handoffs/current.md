@@ -1,42 +1,61 @@
-# Handoff: opt-embed-engine-adapter
+# Handoff: {{title}}
 
-**Status:** done  
-**Created:** 2026-08-14  
-**Specifier:** lean thin handoff  
-**Developer:** lean in-supervisor
+**Status:** spec | implementing | done | blocked  
+**Created:** {{date}}  
+**Specifier:** spec complete  
+**Developer:** pending
 
 ## GitHub tracking
 
 | Field | Value |
 |-------|-------|
-| Feature id | `opt-embed-engine-adapter` |
-| Parent issue | #54 — https://github.com/SpektrNO/searchify/issues/54 |
-| Open tasks | _(none)_ |
-| Closed | `spec` (#55), `engine` (#56), `verify` (#57), `docs` (#58) |
+| Feature id | `{{feature_id}}` |
+| Parent issue | #{{parent_number}} — {{parent_url}} |
+| Open tasks | `spec`, `engine`, … (update as closed) |
+
+Task order: `audit` → `spec` → `engine` → `verify` → `docs`
 
 ## Intent
 
-Make the embedding stack pluggable behind `Embedder`: kjarni remains default; add Ollama and generic HTTP engines.
+One sentence: what capability this feature adds and why.
+
+## Technical contract
+
+| Area | Requirement |
+|------|-------------|
+| MCP tools | New or changed tool names, inputs, outputs |
+| Search mode | keyword / vector / hybrid |
+| Performance | Latency or throughput targets |
+| Acceptance | Observable pass/fail criteria |
+
+## Touchpoints
+
+- Files or packages likely to change (best guess; dev agent confirms)
+- Must not contradict [architecture.md](../architecture.md)
+
+## Out of scope
+
+What this handoff explicitly does **not** include.
+
+---
 
 ## Implementation result
 
+*(Developer agent fills this section.)*
+
 ### Changes
 
-- `SEARCHIFY_EMBED_ENGINE=kjarni|ollama|http` (default kjarni); `SEARCHIFY_EMBED_URL` for Ollama base or HTTP endpoint.
-- Ollama: `POST /api/embed` with `model` + `input` array.
-- HTTP: `POST {"model","input"}` → `embedding` / `embeddings`.
-- Meta `embed_engine` + `embed_model`; switch clears vectors; search rejects mismatch.
-- `index_status.embed_engine`; MCP **0.8.4**.
+- 
 
 ### Verification
 
-- [x] `go test ./...` (config resolve, httptest ollama/http, engine-switch clear)
-- [ ] Manual: Ollama + `nomic-embed-text` / Qwen embed model + `embed --force`
+- [ ] How tested
+- [ ] What remains manual
 
-### Deviations
+### Deviations from spec
 
-- No in-process ONNX Runtime loader; HTTP/Ollama covers local-server models.
+- None / list with rationale
 
 ### Follow-ups
 
-- Optional OpenAI-compatible `/v1/embeddings` shape if a host needs it.
+- 

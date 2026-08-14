@@ -35,14 +35,18 @@ Docs: [Semantic Rerank API](https://docs.langsearch.com/api/semantic-rerank-api)
 
 ## Vector search: embed_model mismatch
 
-Error like `index embed_model="minilm-l6-v2" but SEARCHIFY_EMBED_MODEL="mpnet-base-v2"` means the SQLite index was built with a different embedding model than the running process. Dimensions must not be mixed.
+Error like `index embed_engine="kjarni" embed_model="minilm-l6-v2" but config engine="ollama" model="nomic-embed-text"` (or a model-only mismatch) means the SQLite index was built with a different embedding stack than the running process. Dimensions / geometry must not be mixed.
 
 ```bash
-export SEARCHIFY_EMBED_MODEL=mpnet-base-v2   # must match the model you want going forward
+# Match the engine+model you want going forward, then rebuild vectors:
+export SEARCHIFY_EMBED_ENGINE=ollama
+export SEARCHIFY_EMBED_MODEL=nomic-embed-text
 ./bin/searchify embed --force
 ```
 
-Keyword `mode=keyword` still works without re-embed. After a successful force embed, `index_status.embed_model` should match the env.
+Keyword `mode=keyword` still works without re-embed. After a successful force embed, `index_status.embed_engine` / `embed_model` should match the env.
+
+Ollama must be running for both `embed` and vector/hybrid search (`curl -sS http://127.0.0.1:11434/api/tags`). Use an **embedding** model, not a chat-only tag.
 
 ## Chunk settings changed / odd retrieval boundaries
 
