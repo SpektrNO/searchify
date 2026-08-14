@@ -16,6 +16,8 @@ const (
 	EnvHTTPToken       = "SEARCHIFY_HTTP_TOKEN"
 	EnvHTTPAddr        = "SEARCHIFY_HTTP_ADDR"
 	EnvEmbedModel      = "SEARCHIFY_EMBED_MODEL"
+	EnvEmbedEngine     = "SEARCHIFY_EMBED_ENGINE"
+	EnvEmbedURL        = "SEARCHIFY_EMBED_URL"
 	EnvPathBase        = "SEARCHIFY_PATH_BASE"
 	EnvWatchPaths      = "SEARCHIFY_WATCH_PATHS"
 	EnvWatchDebounce   = "SEARCHIFY_WATCH_DEBOUNCE"
@@ -65,7 +67,9 @@ type Config struct {
 	HTTPToken        string
 	HTTPAddr         string
 	EmbedModel       string
-	PathBase         string        // optional; relative paths tried here first
+	EmbedEngine      EmbedEngine // kjarni (default) | ollama | http
+	EmbedURL         string      // ollama base URL or full HTTP embeddings URL
+	PathBase         string      // optional; relative paths tried here first
 	WatchPaths       []string      // optional; empty disables auto-index watch
 	WatchDebounce    time.Duration // coalesce fs events (default 1s)
 	WatchRescan      time.Duration // optional periodic IndexPaths; 0 disables
@@ -110,6 +114,14 @@ func (c *Config) UseProcessEmbed() bool {
 // UseInProcessEmbed runs kjarni inside this process.
 func (c *Config) UseInProcessEmbed() bool {
 	return c.EffectiveEmbedBackend() == EmbedBackendONNX
+}
+
+// EffectiveEmbedEngine returns kjarni when unset (tests / legacy Config).
+func (c *Config) EffectiveEmbedEngine() EmbedEngine {
+	if c == nil || c.EmbedEngine == "" {
+		return EmbedEngineKjarni
+	}
+	return c.EmbedEngine
 }
 
 func Load() (*Config, error) {
@@ -183,7 +195,11 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	embedModel, err := ValidateEmbedModel(os.Getenv(EnvEmbedModel))
+	embedEngine, embedModel, embedURL, err := ResolveEmbedSettings(
+		os.Getenv(EnvEmbedEngine),
+		os.Getenv(EnvEmbedModel),
+		os.Getenv(EnvEmbedURL),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +211,8 @@ func Load() (*Config, error) {
 		HTTPToken:        os.Getenv(EnvHTTPToken),
 		HTTPAddr:         defaultString(os.Getenv(EnvHTTPAddr), defaultHTTPAddr),
 		EmbedModel:       embedModel,
+		EmbedEngine:      embedEngine,
+		EmbedURL:         embedURL,
 		PathBase:         pathBase,
 		WatchPaths:       watchPaths,
 		WatchDebounce:    debounce,

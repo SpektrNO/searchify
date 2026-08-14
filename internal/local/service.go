@@ -189,6 +189,13 @@ func (s *Service) migrateToV2(tx *sql.Tx) error {
 	); err != nil {
 		return fmt.Errorf("migrate v2 meta: %w", err)
 	}
+	if _, err := tx.Exec(
+		`INSERT INTO meta(key, value) VALUES (?, ?)
+		 ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+		"embed_engine", string(s.cfg.EffectiveEmbedEngine()),
+	); err != nil {
+		return fmt.Errorf("migrate v2 embed_engine meta: %w", err)
+	}
 	return nil
 }
 
@@ -204,7 +211,7 @@ func (s *Service) getEmbedder() (Embedder, error) {
 	if s.embedErr != nil {
 		return nil, s.embedErr
 	}
-	s.embedder, s.embedErr = newKjarniEmbedder(s.cfg.EmbedModel)
+	s.embedder, s.embedErr = newEmbedder(s.cfg)
 	return s.embedder, s.embedErr
 }
 
@@ -348,7 +355,7 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 		if err := s.embedAndStore(chunkIDs, texts); err != nil {
 			return warn, err
 		}
-		if err := s.setMeta("embed_model", s.cfg.EmbedModel); err != nil {
+		if err := s.setEmbedIdentityMeta(); err != nil {
 			return warn, err
 		}
 	}

@@ -1,6 +1,6 @@
 # Handoff: opt-embed-engine-adapter
 
-**Status:** implementing  
+**Status:** done  
 **Created:** 2026-08-14  
 **Specifier:** lean thin handoff  
 **Developer:** lean in-supervisor
@@ -11,32 +11,32 @@
 |-------|-------|
 | Feature id | `opt-embed-engine-adapter` |
 | Parent issue | #54 — https://github.com/SpektrNO/searchify/issues/54 |
-| Open tasks | `engine` (#56), `verify` (#57), `docs` (#58) |
-| Closed | `spec` (#55) |
+| Open tasks | _(none)_ |
+| Closed | `spec` (#55), `engine` (#56), `verify` (#57), `docs` (#58) |
 
 ## Intent
 
-Make the embedding stack pluggable behind `Embedder`: kjarni remains default; add Ollama and generic HTTP engines so Norwegian/multilingual (or Qwen) models can produce vectors without forking kjarni. Keep process-worker isolation and safe re-embed on engine/model switch.
-
-## Technical contract
-
-| Area | Requirement |
-|------|-------------|
-| Config | `SEARCHIFY_EMBED_ENGINE=kjarni\|ollama\|http` (default `kjarni`). `SEARCHIFY_EMBED_URL` — Ollama base (default `http://127.0.0.1:11434`) or full HTTP embeddings URL. `SEARCHIFY_EMBED_MODEL` — kjarni allowlist when engine=kjarni; free-form non-empty for ollama/http. |
-| Meta | Store `embed_engine` + `embed_model`; clear vectors when either changes; vector search rejects mismatch. |
-| Engines | `kjarni` — existing. `ollama` — `POST {base}/api/embed`. `http` — `POST` JSON `{"model","input"}` → `{"embedding"}` or `{"embeddings"}`. |
-| Backends | `SEARCHIFY_EMBED_BACKEND=process\|onnx\|none` unchanged (where embeds run). |
-| MCP | `index_status` includes `embed_engine`. Bump MCP patch. |
-| Acceptance | (1) kjarni path unchanged; (2) ollama/http factory + httptest tests; (3) engine switch clears vectors; (4) `go test ./...`; (5) README documents engines + Ollama example. |
-
-## Out of scope
-
-- Shipping ONNX Runtime native loader in-process (HTTP/Ollama covers remote/local server case)
-- Changing hybrid math / HNSW
-- Auto-pull Ollama models
-
----
+Make the embedding stack pluggable behind `Embedder`: kjarni remains default; add Ollama and generic HTTP engines.
 
 ## Implementation result
 
-*(Developer fills.)*
+### Changes
+
+- `SEARCHIFY_EMBED_ENGINE=kjarni|ollama|http` (default kjarni); `SEARCHIFY_EMBED_URL` for Ollama base or HTTP endpoint.
+- Ollama: `POST /api/embed` with `model` + `input` array.
+- HTTP: `POST {"model","input"}` → `embedding` / `embeddings`.
+- Meta `embed_engine` + `embed_model`; switch clears vectors; search rejects mismatch.
+- `index_status.embed_engine`; MCP **0.8.4**.
+
+### Verification
+
+- [x] `go test ./...` (config resolve, httptest ollama/http, engine-switch clear)
+- [ ] Manual: Ollama + `nomic-embed-text` / Qwen embed model + `embed --force`
+
+### Deviations
+
+- No in-process ONNX Runtime loader; HTTP/Ollama covers local-server models.
+
+### Follow-ups
+
+- Optional OpenAI-compatible `/v1/embeddings` shape if a host needs it.

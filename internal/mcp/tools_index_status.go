@@ -19,6 +19,7 @@ type indexStatusPayload struct {
 	DocumentCount        int      `json:"document_count"`
 	ChunkCount           int      `json:"chunk_count"`
 	VectorChunkCount     int      `json:"vector_chunk_count"`
+	EmbedEngine          string   `json:"embed_engine,omitempty"`
 	EmbedModel           string   `json:"embed_model,omitempty"`
 	VectorReady          bool     `json:"vector_ready"`
 	LangSearchConfigured bool     `json:"langsearch_configured"`
@@ -52,6 +53,7 @@ func (s *Server) indexStatus(ctx context.Context, req *mcp.CallToolRequest, _ in
 		DocumentCount:        status.DocumentCount,
 		ChunkCount:           status.ChunkCount,
 		VectorChunkCount:     status.VectorChunkCount,
+		EmbedEngine:          status.EmbedEngine,
 		EmbedModel:           status.EmbedModel,
 		VectorReady:          status.VectorReady,
 		LangSearchConfigured: langConfigured,
