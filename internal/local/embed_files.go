@@ -75,7 +75,7 @@ func (s *Service) EmbedFiles(paths []string, opts EmbedOptions) (EmbedReport, er
 	}
 
 	if report.Embedded > 0 {
-		if err := s.setMeta("embed_model", s.cfg.EmbedModel); err != nil {
+		if err := s.setEmbedIdentityMeta(); err != nil {
 			return report, err
 		}
 		if err := s.setMeta("indexed_at", time.Now().UTC().Format(time.RFC3339)); err != nil {

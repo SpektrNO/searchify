@@ -25,6 +25,7 @@ type IndexStatus struct {
 	DocumentCount    int      `json:"document_count"`
 	ChunkCount       int      `json:"chunk_count"`
 	VectorChunkCount int      `json:"vector_chunk_count"`
+	EmbedEngine      string   `json:"embed_engine,omitempty"`
 	EmbedModel       string   `json:"embed_model,omitempty"`
 	VectorReady      bool     `json:"vector_ready"`
 	OCREnabled       bool     `json:"ocr_enabled"`

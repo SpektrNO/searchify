@@ -32,3 +32,36 @@ func TestValidateEmbedModel(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveEmbedSettings(t *testing.T) {
+	t.Parallel()
+	eng, model, url, err := ResolveEmbedSettings("", "", "")
+	if err != nil || eng != EmbedEngineKjarni || model != defaultEmbedModel || url != "" {
+		t.Fatalf("kjarni default: eng=%q model=%q url=%q err=%v", eng, model, url, err)
+	}
+
+	eng, model, url, err = ResolveEmbedSettings("ollama", "nomic-embed-text", "")
+	if err != nil || eng != EmbedEngineOllama || model != "nomic-embed-text" || url != defaultOllamaURL {
+		t.Fatalf("ollama: eng=%q model=%q url=%q err=%v", eng, model, url, err)
+	}
+
+	_, _, _, err = ResolveEmbedSettings("ollama", "", "")
+	if err == nil {
+		t.Fatal("ollama without model should fail")
+	}
+
+	_, _, _, err = ResolveEmbedSettings("http", "my-model", "")
+	if err == nil {
+		t.Fatal("http without URL should fail")
+	}
+
+	eng, model, url, err = ResolveEmbedSettings("http", "my-model", "http://127.0.0.1:8081/v1/embeddings")
+	if err != nil || eng != EmbedEngineHTTP || model != "my-model" || url != "http://127.0.0.1:8081/v1/embeddings" {
+		t.Fatalf("http: eng=%q model=%q url=%q err=%v", eng, model, url, err)
+	}
+
+	_, _, _, err = ResolveEmbedSettings("onnx", "x", "")
+	if err == nil {
+		t.Fatal("invalid engine should fail")
+	}
+}

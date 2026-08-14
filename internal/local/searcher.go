@@ -145,6 +145,13 @@ func (s *Service) Status() (search.IndexStatus, error) {
 	if embedModel == "" {
 		embedModel = s.cfg.EmbedModel
 	}
+	embedEngine, err := s.getMeta("embed_engine")
+	if err != nil {
+		return search.IndexStatus{}, err
+	}
+	if embedEngine == "" {
+		embedEngine = s.wantEmbedEngine()
+	}
 
 	vectorReady := chunkCount > 0 && vectorCount == chunkCount
 	status := search.IndexStatus{
@@ -153,6 +160,7 @@ func (s *Service) Status() (search.IndexStatus, error) {
 		DocumentCount:    int(docCount),
 		ChunkCount:       int(chunkCount),
 		VectorChunkCount: int(vectorCount),
+		EmbedEngine:      embedEngine,
 		EmbedModel:       embedModel,
 		VectorReady:      vectorReady,
 		OCREnabled:       s.cfg.OCREnabled,

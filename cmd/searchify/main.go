@@ -426,6 +426,8 @@ environment:
   SEARCHIFY_CHUNK_OVERLAP      Overlap bytes between chunks (default 256; must be < CHUNK_BYTES)
   SEARCHIFY_EMBED_BATCH        Embedding batch size (default 1)
   SEARCHIFY_EMBED_BACKEND      none|onnx|process (default process: spawn embed worker)
+  SEARCHIFY_EMBED_ENGINE       kjarni (default) | ollama | http
+  SEARCHIFY_EMBED_URL          Ollama base URL or full HTTP embeddings URL
   SEARCHIFY_SKIP_EMBED         1=FTS only, skip ONNX (low RAM; same idea as backend=none)
   SEARCHIFY_TEXT_ONLY          1=index text/code extensions only (no PDF/Office/HTML)
   SEARCHIFY_EXTRACT_INPROCESS  1=extract PDF/Office in-process (default: short-lived worker)
@@ -434,7 +436,7 @@ environment:
   LANGSEARCH_API_KEY           LangSearch API key for web search and rerank
   SEARCHIFY_HTTP_TOKEN         Required Bearer token for HTTP transport
   SEARCHIFY_HTTP_ADDR          Default listen address for serve http (:8080)
-  SEARCHIFY_EMBED_MODEL        Embedding model: minilm-l6-v2 (default), mpnet-base-v2, distilbert-base
-                               After changing model, run: searchify embed --force
+  SEARCHIFY_EMBED_MODEL        kjarni: minilm-l6-v2 (default), mpnet-base-v2, distilbert-base
+                               ollama/http: any model name (required). After change: searchify embed --force
 `)
 }

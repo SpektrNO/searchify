@@ -3,6 +3,8 @@ package local
 import (
 	"fmt"
 
+	"github.com/spektr/searchify/internal/config"
+
 	kjarni "github.com/olafurjohannsson/kjarni-go"
 )
 
@@ -11,6 +13,22 @@ type Embedder interface {
 	Encode(text string) ([]float32, error)
 	EncodeBatch(texts []string) ([][]float32, error)
 	Close() error
+}
+
+func newEmbedder(cfg *config.Config) (Embedder, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+	switch cfg.EffectiveEmbedEngine() {
+	case config.EmbedEngineKjarni:
+		return newKjarniEmbedder(cfg.EmbedModel)
+	case config.EmbedEngineOllama:
+		return newOllamaEmbedder(cfg.EmbedURL, cfg.EmbedModel)
+	case config.EmbedEngineHTTP:
+		return newHTTPEmbedder(cfg.EmbedURL, cfg.EmbedModel)
+	default:
+		return nil, fmt.Errorf("unsupported embed engine %q", cfg.EmbedEngine)
+	}
 }
 
 type kjarniEmbedder struct {

@@ -61,6 +61,52 @@ func TestEmbedModelChangeClearsVectors(t *testing.T) {
 	}
 }
 
+func TestEmbedEngineChangeClearsVectors(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "c.md")
+	if err := os.WriteFile(path, []byte("engine switch re-embed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Roots:            []string{root},
+		IndexDir:         filepath.Join(t.TempDir(), "index"),
+		EmbedModel:       "stub",
+		EmbedEngine:      config.EmbedEngineKjarni,
+		EmbedBackend:     config.EmbedBackendONNX,
+		MaxFileBytes:     1024 * 1024,
+		MaxExtractBytes:  1024 * 1024,
+		MaxChunksPerFile: 64,
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+	svc.embedForTest = &stubEmbedder{}
+
+	if _, err := svc.IndexPaths([]string{path}, false); err != nil {
+		t.Fatal(err)
+	}
+	cfg.EmbedEngine = config.EmbedEngineOllama
+	cfg.EmbedModel = "nomic-embed-text"
+	cfg.EmbedURL = "http://127.0.0.1:9"
+	// Keep stub so we do not call real Ollama; reconcile should still clear.
+	report, err := svc.EmbedFiles(nil, EmbedOptions{Force: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Embedded < 1 {
+		t.Fatalf("expected re-embed after engine change, got %+v", report)
+	}
+	eng, err := svc.getMeta("embed_engine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if eng != string(config.EmbedEngineOllama) {
+		t.Fatalf("embed_engine=%q", eng)
+	}
+}
+
 func TestVectorSearchRejectsEmbedModelMismatch(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "b.md")

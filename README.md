@@ -272,13 +272,28 @@ Then use MCP tools `search_local` and `index_status` from Cursor.
 
 ### Embedding models
 
+`SEARCHIFY_EMBED_ENGINE` selects **which stack** produces vectors (`kjarni` default, `ollama`, or `http`). `SEARCHIFY_EMBED_BACKEND` still selects **where** that runs (`process` / `onnx` / `none`). Query and index must use the same engine+model.
+
+**kjarni** (`SEARCHIFY_EMBED_ENGINE=kjarni` or unset):
+
 | `SEARCHIFY_EMBED_MODEL` | Dims | Notes |
 |-------------------------|------|--------|
 | `minilm-l6-v2` (default) | 384 | Fast, lower quality |
 | `mpnet-base-v2` | 768 | Better semantic retrieval; larger download/RSS |
 | `distilbert-base` | 768 | Alternate 768-d model |
 
-Changing the model clears existing `chunk_vectors` on the next embed/index write (dimensions must not mix). Prefer a full `searchify embed --force` after switching. Vector/hybrid search errors if the index meta model disagrees with the env until you rebuild. Keyword search is unaffected. Models download on first use via kjarni.
+**Ollama** (local server must be running; use an embedding-capable model):
+
+```bash
+export SEARCHIFY_EMBED_ENGINE=ollama
+export SEARCHIFY_EMBED_MODEL=nomic-embed-text   # or e.g. qwen3-embedding
+# export SEARCHIFY_EMBED_URL=http://127.0.0.1:11434   # default
+./bin/searchify embed --force
+```
+
+**HTTP** — `POST` JSON `{"model","input"}` to `SEARCHIFY_EMBED_URL`; response `{"embedding":[...]}` or `{"embeddings":[[...]]}`.
+
+Changing engine or model clears existing `chunk_vectors` on the next embed/index write. Prefer `searchify embed --force` after switching. Vector/hybrid search errors if index meta disagrees with env. Keyword search is unaffected.
 
 ## Cursor configuration
 
@@ -303,6 +318,8 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_CHUNK_OVERLAP` | no | Overlap between consecutive chunks in bytes (default `256`; must be `< CHUNK_BYTES`) |
 | `SEARCHIFY_EMBED_BATCH` | no | ONNX batch size (default `1`) |
 | `SEARCHIFY_EMBED_BACKEND` | no | `process` (default: spawn `searchify embed` per file), `onnx` (in-process), `none` (FTS only) |
+| `SEARCHIFY_EMBED_ENGINE` | no | Vector factory: `kjarni` (default), `ollama`, `http` |
+| `SEARCHIFY_EMBED_URL` | ollama/http | Ollama base URL (default `http://127.0.0.1:11434`) or full HTTP embeddings URL |
 | `SEARCHIFY_SKIP_EMBED` | no | `1`/`true` — FTS/keyword index only; **do not load ONNX** (same idea as `EMBED_BACKEND=none`) |
 | `SEARCHIFY_TEXT_ONLY` | no | `1`/`true` — index passthrough text/code only (disables PDF/Office/HTML extractors; diagnosis aid) |
 | `SEARCHIFY_EXTRACT_INPROCESS` | no | `1`/`true` — extract PDF/Office in the index process (default **off**: short-lived `searchify extract` worker) |
@@ -311,7 +328,7 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `LANGSEARCH_API_KEY` | for web/rerank | LangSearch API key (`search_web` and local `rerank`) |
 | `SEARCHIFY_HTTP_TOKEN` | for HTTP | Bearer token (required to start `serve http`) |
 | `SEARCHIFY_HTTP_ADDR` | no | Default listen address (`:8080`) |
-| `SEARCHIFY_EMBED_MODEL` | no | Embedding model: `minilm-l6-v2` (default), `mpnet-base-v2`, `distilbert-base` — after change run `searchify embed --force` |
+| `SEARCHIFY_EMBED_MODEL` | kjarni / ollama / http | Kjarni: `minilm-l6-v2` (default), `mpnet-base-v2`, `distilbert-base`. Ollama/HTTP: required free-form model name. After engine/model change: `searchify embed --force` |
 
 ## MCP tools
 

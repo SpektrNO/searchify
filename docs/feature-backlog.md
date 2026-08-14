@@ -58,12 +58,8 @@ Optional follow-ups — not required for v1. Spec with `/spec-only` when priorit
 |----|---------|--------|------|
 | `opt-embed-worker` | Isolate/replace in-process kjarni ONNX embeds so bulk index does not pin multi-GB native RSS — prefer subprocess embed worker + optional lighter backend; keep `--skip-embed` / keyword path — [#36](https://github.com/SpektrNO/searchify/issues/36) | ✅ | [architecture.md](./architecture.md) |
 | `opt-better-embeddings` | Higher-quality embedding model than default MiniLM-L6 (e.g. mpnet / multilingual / selectable via config); safe re-embed of existing indexes; keep process-worker + skip-embed paths — [#42](https://github.com/SpektrNO/searchify/issues/42) | ✅ | [architecture.md](./architecture.md) |
-<<<<<<< Updated upstream
+| `opt-embed-engine-adapter` | Pluggable embed/vector engine behind the existing `Embedder` interface so kjarni is one backend among others (e.g. ONNX Runtime / HTTP worker with NB or multilingual models); config to select engine + model; safe re-embed on switch; keep process-worker isolation — [#54](https://github.com/SpektrNO/searchify/issues/54) | ✅ | [architecture.md](./architecture.md) |
 | `opt-better-chunking` | Improve chunking for retrieval: tunable size/overlap, structure-aware splits (headings/pages/paragraphs), fewer truncated/oversized chunks; re-index/re-embed story — [#47](https://github.com/SpektrNO/searchify/issues/47) | ✅ | [architecture.md](./architecture.md) |
-=======
-| `opt-embed-engine-adapter` | Pluggable embed/vector engine behind the existing `Embedder` interface so kjarni is one backend among others (e.g. ONNX Runtime / HTTP worker with NB or multilingual models); config to select engine + model; safe re-embed on switch; keep process-worker isolation | ⬜ | [architecture.md](./architecture.md) |
-| `opt-better-chunking` | Improve chunking for retrieval: tunable size/overlap, structure-aware splits (headings/pages/paragraphs), fewer truncated/oversized chunks; re-index/re-embed story — [#47](https://github.com/SpektrNO/searchify/issues/47) | ⬜ | [architecture.md](./architecture.md) |
->>>>>>> Stashed changes
 | `opt-hnsw-vectors` | HNSW (or other ANN) for faster vector/hybrid search at large chunk counts | ⬜ | [architecture.md](./architecture.md) |
 | `opt-store-adapter` | Pluggable index store: SQLite default; Postgres+pgvector via config (prefer shared Groundline Postgres, not a second server) | ⬜ | [architecture.md](./architecture.md) |
 | `opt-tls-reverse-proxy` | Document/deploy TLS termination via reverse proxy in front of `serve http` | ⬜ | [architecture.md](./architecture.md) |
