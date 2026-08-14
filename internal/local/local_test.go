@@ -458,3 +458,59 @@ func TestSearchSnippetMax(t *testing.T) {
 	}
 }
 
+func TestSearchPDFPageNumber(t *testing.T) {
+	root := t.TempDir()
+	docs := filepath.Join(root, "docs")
+	if err := os.MkdirAll(docs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate pdftotext page breaks with form-feeds.
+	body := "alpha pageone UNIQUE_PAGE_TOKEN\fbravo pagetwo OTHER_TOKEN\n"
+	if err := os.WriteFile(filepath.Join(docs, "deck.txt"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{
+		Roots:      []string{root},
+		IndexDir:   t.TempDir(),
+		EmbedModel: "stub",
+		SkipEmbed:  true,
+		TextOnly:   true,
+	}
+	svc, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+
+	if _, err := svc.IndexPaths([]string{docs}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := svc.Search(SearchParams{Query: "UNIQUE_PAGE_TOKEN", Mode: search.ModeKeyword, Limit: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Results) == 0 {
+		t.Fatal("expected hit")
+	}
+	hit := out.Results[0]
+	if hit.Page != 1 {
+		t.Fatalf("page=%d want 1 title=%q", hit.Page, hit.Title)
+	}
+	if !strings.Contains(hit.Title, ":p.1") {
+		t.Fatalf("title=%q want :p.1", hit.Title)
+	}
+
+	out2, err := svc.Search(SearchParams{Query: "OTHER_TOKEN", Mode: search.ModeKeyword, Limit: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out2.Results) == 0 {
+		t.Fatal("expected page-2 hit")
+	}
+	if out2.Results[0].Page != 2 {
+		t.Fatalf("page=%d want 2", out2.Results[0].Page)
+	}
+}
+

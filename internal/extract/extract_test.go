@@ -4,8 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"os"
-	"path/filepath"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -259,10 +258,84 @@ func pad10(n int) string {
 	return s
 }
 
-func TestWriteFixturesHelper(t *testing.T) {
-	// Smoke: ensure fixtures can be written for integration tests.
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "a.pdf"), minimalPDF("x"), 0o644); err != nil {
+func TestPPTXAndODPSlideBreaks(t *testing.T) {
+	reg := extract.NewRegistry(extract.Options{})
+	ctx := context.Background()
+
+	pptx := minimalPPTX([]string{"SlideOneToken", "SlideTwoToken"})
+	text, _, err := reg.Extract(ctx, "deck.pptx", bytes.NewReader(pptx), int64(len(pptx)))
+	if err != nil {
 		t.Fatal(err)
 	}
+	if !strings.Contains(text, "\f") {
+		t.Fatalf("pptx expected form-feed between slides: %q", text)
+	}
+	parts := strings.Split(text, "\f")
+	if len(parts) < 2 {
+		t.Fatalf("pptx parts=%d text=%q", len(parts), text)
+	}
+	if !strings.Contains(parts[0], "SlideOneToken") || !strings.Contains(parts[1], "SlideTwoToken") {
+		t.Fatalf("pptx order wrong: %q", text)
+	}
+
+	odp := minimalODP([]string{"OdpSlideA", "OdpSlideB"})
+	text, _, err = reg.Extract(ctx, "deck.odp", bytes.NewReader(odp), int64(len(odp)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(text, "\f") {
+		t.Fatalf("odp expected form-feed between slides: %q", text)
+	}
+	parts = strings.Split(text, "\f")
+	if len(parts) < 2 || !strings.Contains(parts[0], "OdpSlideA") || !strings.Contains(parts[1], "OdpSlideB") {
+		t.Fatalf("odp text=%q", text)
+	}
 }
+
+func minimalPPTX(slides []string) []byte {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for i, phrase := range slides {
+		name := "ppt/slides/slide" + itoa(i+1) + ".xml"
+		w, err := zw.Create(name)
+		if err != nil {
+			panic(err)
+		}
+		xml := `<?xml version="1.0"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>` + phrase + `</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`
+		if _, err := io.WriteString(w, xml); err != nil {
+			panic(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
+func minimalODP(slides []string) []byte {
+	var pages strings.Builder
+	pages.WriteString(`<?xml version="1.0"?>`)
+	pages.WriteString(`<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">`)
+	pages.WriteString(`<office:body><office:presentation>`)
+	for i, phrase := range slides {
+		pages.WriteString(`<draw:page draw:name="page` + itoa(i+1) + `">`)
+		pages.WriteString(`<text:p>` + phrase + `</text:p>`)
+		pages.WriteString(`</draw:page>`)
+	}
+	pages.WriteString(`</office:presentation></office:body></office:document-content>`)
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create("content.xml")
+	if err != nil {
+		panic(err)
+	}
+	if _, err := io.WriteString(w, pages.String()); err != nil {
+		panic(err)
+	}
+	if err := zw.Close(); err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
+

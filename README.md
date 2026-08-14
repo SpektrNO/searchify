@@ -399,6 +399,8 @@ Search the persisted index. Default mode is `hybrid` when vectors exist, otherwi
 
 Modes: `keyword` (FTS5 BM25), `vector` (cosine similarity), `hybrid` (RRF fusion). Set `rerank: true` to reorder results with LangSearch (requires `LANGSEARCH_API_KEY`). Optional `snippet_max` overrides `SEARCHIFY_SNIPPET_CHARS` (default 300, hard max 8000).
 
+PDF / PPTX / ODP hits (form-feed page or slide breaks at extract time) include `page` (1-based) and title like `doc.pdf:p.3` or `deck.pptx:p.2`. Other files keep `line` / `name.md:42`. Re-index after upgrading so `chunk_pages` is populated.
+
 Responses include `duration_ms` (wall clock). `search_local` also returns a `timing` breakdown (`keyword_ms` / `vector_ms` / `rrf_ms` / `rerank_ms`) for the legs that ran.
 
 ### Upgrading from phase 2

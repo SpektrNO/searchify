@@ -31,6 +31,28 @@ func TestChunkSplitsFormFeedPages(t *testing.T) {
 	if len(chunks) < 2 {
 		t.Fatalf("expected page split, got %d %#v", len(chunks), chunks)
 	}
+	if chunks[0].PageStart != 1 {
+		t.Fatalf("chunk0 page=%d want 1", chunks[0].PageStart)
+	}
+	if chunks[1].PageStart != 2 {
+		t.Fatalf("chunk1 page=%d want 2", chunks[1].PageStart)
+	}
+}
+
+func TestChunkNoFormFeedHasNoPage(t *testing.T) {
+	text := "# Intro\n\nHello world.\n"
+	chunks, err := chunkFile([]byte(text), ChunkParams{TargetBytes: 3072, OverlapBytes: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) == 0 {
+		t.Fatal("expected chunks")
+	}
+	for _, c := range chunks {
+		if c.PageStart != 0 {
+			t.Fatalf("markdown should not set page, got %d", c.PageStart)
+		}
+	}
 }
 
 func TestChunkOverlapCarriesSuffix(t *testing.T) {

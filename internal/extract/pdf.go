@@ -187,7 +187,7 @@ func plainTextFromPDF(ctx context.Context, data []byte) (text string, err error)
 		}
 		buf.WriteString(pageText)
 		if i < pages {
-			buf.WriteByte('\n')
+			buf.WriteByte('\f')
 		}
 	}
 	return buf.String(), nil

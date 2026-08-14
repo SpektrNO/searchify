@@ -50,7 +50,7 @@ Ollama must be running for both `embed` and vector/hybrid search (`curl -sS http
 
 ## Chunk settings changed / odd retrieval boundaries
 
-Chunk packing uses `SEARCHIFY_CHUNK_BYTES` / `SEARCHIFY_CHUNK_OVERLAP` plus structure splits (Markdown headings, `\f` page breaks). The index does **not** auto-detect stale chunking — after changing those env vars (or upgrading chunk logic), rebuild:
+Chunk packing uses `SEARCHIFY_CHUNK_BYTES` / `SEARCHIFY_CHUNK_OVERLAP` plus structure splits (Markdown headings, `\f` page breaks). PDF search hits get optional `page` from those form-feeds (stored in `chunk_pages` after index). The index does **not** auto-detect stale chunking — after changing those env vars (or upgrading chunk/page logic), rebuild:
 
 ```bash
 ./bin/searchify index --force <paths…>

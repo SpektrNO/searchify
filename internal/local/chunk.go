@@ -16,6 +16,7 @@ type chunk struct {
 	Index     int
 	LineStart int
 	LineEnd   int
+	PageStart int // 0 = no form-feed page markers; else 1-based PDF page
 	Text      string
 }
 
@@ -41,6 +42,7 @@ func normalizeChunkParams(p ChunkParams) ChunkParams {
 type segment struct {
 	lineStart int
 	lineEnd   int
+	pageStart int // 0 = unknown / no pages; else 1-based
 	text      string
 	hardStart bool // do not append onto a non-empty buffer (heading / page break)
 }
@@ -69,7 +71,7 @@ func chunkFile(content []byte, params ChunkParams) ([]chunk, error) {
 
 	var chunks []chunk
 	var buf strings.Builder
-	bufStart, bufEnd := 0, 0
+	bufStart, bufEnd, bufPage := 0, 0, 0
 	var overlapCarry string
 
 	flush := func() {
@@ -82,6 +84,7 @@ func chunkFile(content []byte, params ChunkParams) ([]chunk, error) {
 			Index:     len(chunks),
 			LineStart: bufStart,
 			LineEnd:   bufEnd,
+			PageStart: bufPage,
 			Text:      text,
 		})
 		if params.OverlapBytes > 0 {
@@ -98,6 +101,7 @@ func chunkFile(content []byte, params ChunkParams) ([]chunk, error) {
 		}
 		if buf.Len() == 0 {
 			bufStart = u.lineStart
+			bufPage = u.pageStart
 			if overlapCarry != "" {
 				buf.WriteString(overlapCarry)
 				if !strings.HasSuffix(overlapCarry, "\n") {
@@ -114,6 +118,7 @@ func chunkFile(content []byte, params ChunkParams) ([]chunk, error) {
 		if buf.Len() > 0 && candidateLen > params.TargetBytes {
 			flush()
 			bufStart = u.lineStart
+			bufPage = u.pageStart
 			if overlapCarry != "" {
 				buf.WriteString(overlapCarry)
 				if !strings.HasSuffix(overlapCarry, "\n") {
@@ -141,10 +146,20 @@ func splitSegments(content []byte) ([]segment, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(content))
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
+	hasPages := bytes.Contains(content, []byte{'\f'})
+	page := 1
+	segPage := func() int {
+		if hasPages {
+			return page
+		}
+		return 0
+	}
+
 	var segments []segment
 	lineNo := 0
 	var lines []string
 	segStart := 0
+	segPageStart := 0
 
 	flush := func(endLine int, hardStart bool) {
 		if len(lines) == 0 {
@@ -158,6 +173,7 @@ func splitSegments(content []byte) ([]segment, error) {
 		segments = append(segments, segment{
 			lineStart: segStart,
 			lineEnd:   endLine,
+			pageStart: segPageStart,
 			text:      text,
 			hardStart: hardStart,
 		})
@@ -174,6 +190,7 @@ func splitSegments(content []byte) ([]segment, error) {
 			for i, part := range parts {
 				if i > 0 {
 					flush(lineNo-1, false)
+					page++
 				}
 				part = strings.TrimRight(part, "\r")
 				if strings.TrimSpace(part) == "" {
@@ -181,6 +198,7 @@ func splitSegments(content []byte) ([]segment, error) {
 				}
 				if len(lines) == 0 {
 					segStart = lineNo
+					segPageStart = segPage()
 				}
 				lines = append(lines, part)
 				if i > 0 {
@@ -200,6 +218,7 @@ func splitSegments(content []byte) ([]segment, error) {
 		if isMarkdownHeading(raw) {
 			flush(lineNo-1, false)
 			segStart = lineNo
+			segPageStart = segPage()
 			lines = []string{raw}
 			// Keep heading open so following body lines join this segment until blank/heading/page.
 			continue
@@ -207,6 +226,7 @@ func splitSegments(content []byte) ([]segment, error) {
 
 		if len(lines) == 0 {
 			segStart = lineNo
+			segPageStart = segPage()
 		}
 		lines = append(lines, raw)
 	}
@@ -281,6 +301,7 @@ func splitOversized(seg segment, target int) []segment {
 		out = append(out, segment{
 			lineStart: seg.lineStart,
 			lineEnd:   seg.lineEnd,
+			pageStart: seg.pageStart,
 			text:      piece,
 			hardStart: seg.hardStart && first,
 		})

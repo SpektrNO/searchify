@@ -17,6 +17,7 @@ type Result struct {
 	Score   float64 `json:"score"`
 	Source  string  `json:"source"`
 	Line    int     `json:"line,omitempty"`
+	Page    int     `json:"page,omitempty"` // 1-based PDF page when known
 }
 
 type IndexStatus struct {

@@ -17,7 +17,7 @@ import (
 	"github.com/spektr/searchify/internal/extract"
 )
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 type Service struct {
 	cfg                 *config.Config
@@ -133,6 +133,12 @@ func (s *Service) migrate() error {
 		if err := s.migrateToV2(tx); err != nil {
 			return err
 		}
+		version = 2
+	}
+	if version < 3 {
+		if err := s.migrateToV3(tx); err != nil {
+			return err
+		}
 	}
 
 	if _, err := tx.Exec(`DELETE FROM schema_version`); err != nil {
@@ -195,6 +201,16 @@ func (s *Service) migrateToV2(tx *sql.Tx) error {
 		"embed_engine", string(s.cfg.EffectiveEmbedEngine()),
 	); err != nil {
 		return fmt.Errorf("migrate v2 embed_engine meta: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) migrateToV3(tx *sql.Tx) error {
+	if _, err := tx.Exec(`CREATE TABLE IF NOT EXISTS chunk_pages (
+		chunk_id TEXT PRIMARY KEY,
+		page INTEGER NOT NULL
+	)`); err != nil {
+		return fmt.Errorf("migrate v3: %w", err)
 	}
 	return nil
 }
@@ -275,6 +291,12 @@ func (s *Service) deleteFileChunks(path string) error {
 	); err != nil {
 		return err
 	}
+	if _, err := s.db.Exec(
+		`DELETE FROM chunk_pages WHERE chunk_id IN (SELECT id FROM chunks_fts WHERE file_path = ?)`,
+		path,
+	); err != nil {
+		return err
+	}
 	_, err := s.db.Exec(`DELETE FROM chunks_fts WHERE file_path = ?`, path)
 	return err
 }
@@ -313,6 +335,14 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 		)
 		if err != nil {
 			return warn, err
+		}
+		if c.PageStart > 0 {
+			if _, err := s.db.Exec(
+				`INSERT INTO chunk_pages(chunk_id, page) VALUES (?, ?)`,
+				id, c.PageStart,
+			); err != nil {
+				return warn, err
+			}
 		}
 	}
 

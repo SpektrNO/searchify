@@ -141,7 +141,7 @@ func ocrPDFViaPoppler(ctx context.Context, path string, data []byte, lang string
 		}
 		parts = append(parts, text)
 	}
-	joined := strings.TrimSpace(strings.Join(parts, "\n\n"))
+	joined := strings.TrimSpace(strings.Join(parts, "\f"))
 	if joined == "" {
 		return "", warn, fmt.Errorf("PDF OCR produced no text")
 	}

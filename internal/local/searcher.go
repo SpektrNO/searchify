@@ -201,9 +201,27 @@ func (s *Service) searchKeyword(query string, limit, snippetMax int) ([]search.R
 	if err != nil {
 		return nil, fmt.Errorf("search index: %w", err)
 	}
-	defer rows.Close()
 
-	return scanSearchResults(rows, limit, snippetMax)
+	results, err := scanSearchResults(rows, limit, snippetMax, nil)
+	_ = rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, len(results))
+	for i, r := range results {
+		ids[i] = r.ID
+	}
+	pages, err := s.chunkPagesByIDs(ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range results {
+		if p := pages[results[i].ID]; p > 0 {
+			results[i].Page = p
+			results[i].Title = formatHitTitle(filepath.Base(results[i].Path), results[i].Line, p)
+		}
+	}
+	return results, nil
 }
 
 func (s *Service) searchVector(query string, limit, snippetMax int) ([]search.Result, error) {
@@ -381,28 +399,45 @@ func (s *Service) resultsByChunkIDs(ids []string, scores map[string]float64, sni
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	byID := make(map[string]search.Result, len(ids))
+	type row struct {
+		id, filePath, text string
+		lineStart          int
+	}
+	raw := make([]row, 0, len(ids))
 	for rows.Next() {
-		var id, filePath, text string
-		var lineStart int
-		if err := rows.Scan(&id, &filePath, &lineStart, &text); err != nil {
+		var r row
+		if err := rows.Scan(&r.id, &r.filePath, &r.lineStart, &r.text); err != nil {
+			_ = rows.Close()
 			return nil, err
 		}
-		base := filepath.Base(filePath)
-		byID[id] = search.Result{
-			ID:      id,
-			Title:   fmt.Sprintf("%s:%d", base, lineStart),
-			Path:    filePath,
-			Snippet: trimSnippet(text, snippetMax),
-			Score:   scores[id],
-			Source:  "local",
-			Line:    lineStart,
-		}
+		raw = append(raw, r)
 	}
-	if err := rows.Err(); err != nil {
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
 		return nil, err
+	}
+
+	pages, err := s.chunkPagesByIDs(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	byID := make(map[string]search.Result, len(ids))
+	for _, r := range raw {
+		page := pages[r.id]
+		base := filepath.Base(r.filePath)
+		byID[r.id] = search.Result{
+			ID:      r.id,
+			Title:   formatHitTitle(base, r.lineStart, page),
+			Path:    r.filePath,
+			Snippet: trimSnippet(r.text, snippetMax),
+			Score:   scores[r.id],
+			Source:  "local",
+			Line:    r.lineStart,
+			Page:    page,
+		}
 	}
 
 	results := make([]search.Result, 0, len(ids))
@@ -414,11 +449,46 @@ func (s *Service) resultsByChunkIDs(ids []string, scores map[string]float64, sni
 	return results, nil
 }
 
+func (s *Service) chunkPagesByIDs(ids []string) (map[string]int, error) {
+	out := make(map[string]int, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	q := fmt.Sprintf(`SELECT chunk_id, page FROM chunk_pages WHERE chunk_id IN (%s)`, joinPlaceholders(placeholders))
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var page int
+		if err := rows.Scan(&id, &page); err != nil {
+			return nil, err
+		}
+		out[id] = page
+	}
+	return out, rows.Err()
+}
+
+func formatHitTitle(base string, line, page int) string {
+	if page > 0 {
+		return fmt.Sprintf("%s:p.%d", base, page)
+	}
+	return fmt.Sprintf("%s:%d", base, line)
+}
+
 func scanSearchResults(rows interface {
 	Next() bool
 	Scan(dest ...any) error
 	Err() error
-}, limit, snippetMax int) ([]search.Result, error) {
+}, limit, snippetMax int, pages map[string]int) ([]search.Result, error) {
 	results := make([]search.Result, 0, limit)
 	for rows.Next() {
 		var id, filePath, text string
@@ -427,15 +497,20 @@ func scanSearchResults(rows interface {
 		if err := rows.Scan(&id, &filePath, &lineStart, &text, &score); err != nil {
 			return nil, err
 		}
+		page := 0
+		if pages != nil {
+			page = pages[id]
+		}
 		base := filepath.Base(filePath)
 		results = append(results, search.Result{
 			ID:      id,
-			Title:   fmt.Sprintf("%s:%d", base, lineStart),
+			Title:   formatHitTitle(base, lineStart, page),
 			Path:    filePath,
 			Snippet: trimSnippet(text, snippetMax),
 			Score:   score,
 			Source:  "local",
 			Line:    lineStart,
+			Page:    page,
 		})
 	}
 	return results, rows.Err()
