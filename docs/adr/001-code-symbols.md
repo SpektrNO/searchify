@@ -34,9 +34,9 @@ Tracked as separate backlog rows (⬜):
 
 | Backlog ID | Lang | Expected analyzer | Notes |
 |------------|------|-------------------|--------|
-| `opt-code-symbols-go` | Go | `go/parser` in-process | No worker |
-| `opt-code-symbols-ts` | TypeScript / JS | Node/ts-morph or Tree-sitter worker | Needs Node on PATH |
-| `opt-code-symbols-csharp` | C# | Roslyn-oriented worker | Needs `dotnet` on PATH |
+| `opt-code-symbols-go` | Go | `go/parser` in-process | ✅ shipped |
+| `opt-code-symbols-ts` | TypeScript / JS | Node/ts-morph or Tree-sitter worker | ⬜ Needs Node on PATH |
+| `opt-code-symbols-csharp` | C# | Roslyn-oriented worker | ⬜ Needs `dotnet` on PATH |
 
 Same tables and MCP tools; string `kind` / `lang` values, no schema fork.
 
