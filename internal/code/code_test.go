@@ -63,11 +63,68 @@ func TestPythonAnalyzeAndChunk(t *testing.T) {
 	}
 }
 
-func TestForPathPython(t *testing.T) {
+func TestForPathAnalyzers(t *testing.T) {
 	if code.ForPath("x.py") == nil {
 		t.Fatal("expected python analyzer")
 	}
-	if code.ForPath("x.go") != nil {
-		t.Fatal("go analyzer not in v1")
+	if code.ForPath("x.go") == nil {
+		t.Fatal("expected go analyzer")
+	}
+	if code.ForPath("x.rs") != nil {
+		t.Fatal("rust analyzer not in v1")
+	}
+}
+
+func TestGoAnalyze(t *testing.T) {
+	src := []byte(`package sample
+
+import "fmt"
+
+func Hello(x int) int {
+	return fmt.Sprintf("%d", x)
+}
+
+type Greeter struct{}
+
+func (g *Greeter) Greet() {
+	Hello(1)
+}
+`)
+	a := code.GoAnalyzer{}
+	res, err := a.Analyze("sample.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawHello, sawType, sawMethod bool
+	for _, u := range res.Units {
+		switch u.QualName {
+		case "Hello":
+			sawHello = true
+			if u.Kind != "function" {
+				t.Fatalf("Hello kind=%s", u.Kind)
+			}
+		case "Greeter":
+			sawType = true
+		case "Greeter.Greet":
+			sawMethod = true
+			if u.Kind != "method" {
+				t.Fatalf("Greet kind=%s", u.Kind)
+			}
+		}
+	}
+	if !sawHello || !sawType || !sawMethod {
+		t.Fatalf("units=%#v", res.Units)
+	}
+	var sawImport, sawCall bool
+	for _, r := range res.Refs {
+		if r.Kind == "import" && strings.Contains(r.QualName, "fmt") {
+			sawImport = true
+		}
+		if r.Kind == "call" && (r.Name == "Hello" || r.QualName == "fmt.Sprintf") {
+			sawCall = true
+		}
+	}
+	if !sawImport || !sawCall {
+		t.Fatalf("refs=%#v", res.Refs)
 	}
 }
