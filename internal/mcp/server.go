@@ -13,7 +13,7 @@ import (
 
 const (
 	serverName    = "searchify"
-	serverVersion = "0.8.7"
+	serverVersion = "0.9.0"
 )
 
 type Server struct {
@@ -92,6 +92,16 @@ func (s *Server) registerTools() {
 		Name:        "search_local",
 		Description: "Hybrid local search (keyword, vector, hybrid) over the persisted index.",
 	}, s.searchLocal)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "lookup_symbol",
+		Description: "Look up code symbol definitions (name/qual_name) from the symbol index (Python v1).",
+	}, s.lookupSymbol)
+
+	mcp.AddTool(s.mcp, &mcp.Tool{
+		Name:        "find_references",
+		Description: "Find best-effort code references matching a symbol name or qual_name (Python v1).",
+	}, s.findReferences)
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name:        "search_web",

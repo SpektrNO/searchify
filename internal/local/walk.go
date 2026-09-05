@@ -12,6 +12,7 @@ import (
 
 var skipDirNames = map[string]struct{}{
 	".git": {}, ".cursor": {}, "node_modules": {}, "vendor": {}, "bin": {}, ".searchify": {},
+	"venv": {}, ".venv": {}, "__pycache__": {}, ".tox": {}, ".mypy_cache": {},
 }
 
 func collectIndexablePaths(cfg *config.Config, reg *extract.Registry, roots []string) ([]string, []string) {

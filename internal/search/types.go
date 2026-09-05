@@ -18,6 +18,8 @@ type Result struct {
 	Source  string  `json:"source"`
 	Line    int     `json:"line,omitempty"`
 	Page    int     `json:"page,omitempty"` // 1-based PDF page when known
+	Symbol  string  `json:"symbol,omitempty"`
+	Kind    string  `json:"symbol_kind,omitempty"`
 }
 
 type IndexStatus struct {
