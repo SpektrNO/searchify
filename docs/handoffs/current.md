@@ -1,42 +1,61 @@
-# Handoff: opt-code-symbols-ts
+# Handoff: {{title}}
 
-**Status:** implementing  
-**Created:** 2026-09-05  
-**Specifier:** lean thin handoff  
-**Developer:** in-supervisor
+**Status:** spec | implementing | done | blocked  
+**Created:** {{date}}  
+**Specifier:** spec complete  
+**Developer:** pending
 
 ## GitHub tracking
 
 | Field | Value |
 |-------|-------|
-| Feature id | `opt-code-symbols-ts` |
-| Parent issue | #71 — https://github.com/SpektrNO/searchify/issues/71 |
-| Open tasks | `engine`, `verify`, `docs` |
+| Feature id | `{{feature_id}}` |
+| Parent issue | #{{parent_number}} — {{parent_url}} |
+| Open tasks | `spec`, `engine`, … (update as closed) |
 
-Task order: `spec` → `engine` → `verify` → `docs`
+Task order: `audit` → `spec` → `engine` → `verify` → `docs`
 
 ## Intent
 
-Node worker Analyzer for `.ts` / `.tsx` / `.js` / `.jsx` so TS/JS code gets symbol-aware chunks and `lookup_symbol` / `find_references`, matching ADR 001 (fail-soft when `node` missing).
+One sentence: what capability this feature adds and why.
 
 ## Technical contract
 
 | Area | Requirement |
 |------|-------------|
-| MCP tools | Reuse `lookup_symbol` / `find_references`; bump MCP patch version; mention TS/JS in descriptions |
-| Analyzer | `TSAnalyzer` via short-lived Node worker; prefer `typescript` from project `node_modules` (walk-up); else built-in heuristic AST-ish parse |
-| Fail-soft | No `node` or worker error → text chunks (existing path) |
-| Exts | `.ts` `.tsx` `.js` `.jsx` |
-| Acceptance | `go test` covers analyzer (+ index lookup when Node present); docs/backlog ✅ |
+| MCP tools | New or changed tool names, inputs, outputs |
+| Search mode | keyword / vector / hybrid |
+| Performance | Latency or throughput targets |
+| Acceptance | Observable pass/fail criteria |
 
 ## Touchpoints
 
-- `internal/code/` (worker + Go wrapper)
-- README / architecture / ADR 001 follow-on table
-- MCP tool blurbs + version
+- Files or packages likely to change (best guess; dev agent confirms)
+- Must not contradict [architecture.md](../architecture.md)
 
 ## Out of scope
 
-- ts-morph dependency / shipping `node_modules`
-- Cross-file type resolution / full LSP
-- C# analyzer
+What this handoff explicitly does **not** include.
+
+---
+
+## Implementation result
+
+*(Developer agent fills this section.)*
+
+### Changes
+
+- 
+
+### Verification
+
+- [ ] How tested
+- [ ] What remains manual
+
+### Deviations from spec
+
+- None / list with rationale
+
+### Follow-ups
+
+- 
