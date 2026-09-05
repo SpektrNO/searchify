@@ -36,7 +36,7 @@ Tracked as separate backlog rows (⬜):
 |------------|------|-------------------|--------|
 | `opt-code-symbols-go` | Go | `go/parser` in-process | ✅ shipped |
 | `opt-code-symbols-ts` | TypeScript / JS | Node worker (`typescript` if resolvable, else heuristic) | ✅ shipped — needs `node` on PATH |
-| `opt-code-symbols-csharp` | C# | Roslyn-oriented worker | ⬜ Needs `dotnet` on PATH |
+| `opt-code-symbols-csharp` | C# | Roslyn worker when `dotnet` present; else Go heuristic | ✅ shipped — symbols without SDK via heuristic |
 
 Same tables and MCP tools; string `kind` / `lang` values, no schema fork.
 
