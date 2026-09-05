@@ -1,61 +1,29 @@
-# Handoff: {{title}}
+# Handoff: opt-code-symbols-go
 
-**Status:** spec | implementing | done | blocked  
-**Created:** {{date}}  
-**Specifier:** spec complete  
-**Developer:** pending
+**Status:** done  
+**Created:** 2026-09-05  
+**Specifier:** lean thin handoff  
+**Developer:** in-supervisor
 
 ## GitHub tracking
 
 | Field | Value |
 |-------|-------|
-| Feature id | `{{feature_id}}` |
-| Parent issue | #{{parent_number}} — {{parent_url}} |
-| Open tasks | `spec`, `engine`, … (update as closed) |
-
-Task order: `audit` → `spec` → `engine` → `verify` → `docs`
+| Feature id | `opt-code-symbols-go` |
+| Parent issue | #66 — https://github.com/SpektrNO/searchify/issues/66 |
+| Open tasks | _(none)_ |
 
 ## Intent
 
-One sentence: what capability this feature adds and why.
-
-## Technical contract
-
-| Area | Requirement |
-|------|-------------|
-| MCP tools | New or changed tool names, inputs, outputs |
-| Search mode | keyword / vector / hybrid |
-| Performance | Latency or throughput targets |
-| Acceptance | Observable pass/fail criteria |
-
-## Touchpoints
-
-- Files or packages likely to change (best guess; dev agent confirms)
-- Must not contradict [architecture.md](../architecture.md)
-
-## Out of scope
-
-What this handoff explicitly does **not** include.
-
----
+In-process Go Analyzer for `.go` files (ADR 001 follow-on).
 
 ## Implementation result
 
-*(Developer agent fills this section.)*
+- `internal/code/go.go`: `GoAnalyzer` via `go/parser` + `go/ast`
+- Units: module preamble, functions, methods, types; refs: imports + calls
+- MCP **0.9.1**; existing `lookup_symbol` / `find_references`
+- Tests: `TestGoAnalyze`, `TestIndexGoSymbols`
 
-### Changes
+## Verification
 
-- 
-
-### Verification
-
-- [ ] How tested
-- [ ] What remains manual
-
-### Deviations from spec
-
-- None / list with rationale
-
-### Follow-ups
-
-- 
+`go test ./...` passed.
