@@ -44,6 +44,7 @@ Stdio remains the recommended Cursor transport for local use.
 - Go 1.25+ (required by MCP Go SDK)
 - `SEARCHIFY_ROOTS` environment variable
 - **Poppler** (`pdftotext` on `PATH`) — strongly recommended for PDF indexing (avoids pure-Go PDF hangs/OOM). Optional but needed for reliable PDF text extract; PDF OCR also needs `pdftoppm` (+ Tesseract when `SEARCHIFY_OCR=1`).
+- **Optional for code symbols:** `python3` (Python AST), `node` (TypeScript/JS; uses project `typescript` when present)
 
 ### Install Poppler
 
@@ -349,7 +350,7 @@ Re-indexing does **not** remove deleted files from the index. Use `remove_paths`
 
 ### Indexable file types
 
-Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`. `.py` uses AST-aware chunking when `python3` is on `PATH` (else text chunks). `.go` uses in-process `go/parser` analysis (fail-soft to text on parse error). Index walks skip `venv` / `.venv` / `__pycache__` / `.tox` / `.mypy_cache` (and existing skips).
+Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`. `.py` uses AST-aware chunking when `python3` is on `PATH` (else text chunks). `.go` uses in-process `go/parser` analysis (fail-soft to text on parse error). `.ts` / `.tsx` / `.js` / `.jsx` use a Node worker when `node` is on `PATH` (prefers project `typescript`, else heuristic; fail-soft if Node missing). Index walks skip `venv` / `.venv` / `__pycache__` / `.tox` / `.mypy_cache` (and existing skips including `node_modules`).
 
 Extracted formats: `.pdf` `.docx` `.xlsx` `.csv` `.html`/`.htm`, plus stretch `.pptx` `.odt`/`.ods`/`.odp` `.rtf` `.eml`. Images (`.png` `.jpg` `.jpeg` `.webp` `.tif` `.tiff` `.gif`) index only when `SEARCHIFY_OCR=1`. Other extensions are ignored. `index_status` reports `ocr_enabled` and `index_extensions`.
 
@@ -406,7 +407,7 @@ Responses include `duration_ms` (wall clock). `search_local` also returns a `tim
 
 ### `lookup_symbol`
 
-Look up indexed code definitions (Python / Go; requires re-index of `.py`/`.go` — Python needs `python3` on PATH).
+Look up indexed code definitions (Python / Go / TypeScript·JS; requires re-index — Python needs `python3`, TS/JS needs `node` on PATH).
 
 ```json
 {
@@ -431,7 +432,7 @@ Best-effort references (`import` / `call` / `name`) for a symbol.
 
 ### Upgrading from phase 2
 
-Schema v2 adds vector storage. Existing keyword indexes keep working. Run `index_paths` with `"force": true` (or `searchify index --force`) once to embed all chunks. Schema v4 adds code symbol tables — re-index Python/Go trees after upgrading (MCP **0.9.1**+ for Go analyzer).
+Schema v2 adds vector storage. Existing keyword indexes keep working. Run `index_paths` with `"force": true` (or `searchify index --force`) once to embed all chunks. Schema v4 adds code symbol tables — re-index Python/Go/TS/JS trees after upgrading (MCP **0.9.2**+ for TS/JS analyzer).
 
 ### `search_web`
 
