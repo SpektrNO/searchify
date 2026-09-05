@@ -11,6 +11,7 @@ Hybrid text-search MCP server in Go.
 | Config | `internal/config` | Env vars, path allowlist |
 | File search | `internal/file` | Single-file keyword scan |
 | Local index | `internal/local` | SQLite FTS5 + chunk vectors (phase 2–3) |
+| Code analyze | `internal/code` | Language Analyzer plugins (Python AST worker v1) |
 | Web | `internal/web` | LangSearch web search + shared HTTP client (phase 4) |
 | Rank | `internal/rank` | RRF fusion; rerank delegates to `internal/web` (phase 3–4) |
 
@@ -19,6 +20,7 @@ Hybrid text-search MCP server in Go.
 - Index database: `{SEARCHIFY_INDEX_DIR}/index.db`
 - Lexical: SQLite FTS5 via `modernc.org/sqlite` (pure Go)
 - Vectors: `chunk_vectors` table (float32 embeddings from kjarni-go)
+- Code: schema v4 `chunk_symbols`, `symbols`, `symbol_refs` (see [ADR 001](./adr/001-code-symbols.md))
 - Embeddings: in-process via `SEARCHIFY_EMBED_MODEL` (default `minilm-l6-v2`)
 - Incremental updates keyed on file `mtime` + `size`; vectors updated with re-indexed files
 
@@ -32,6 +34,8 @@ Hybrid text-search MCP server in Go.
 | `remove_paths` | opt | Remove files/dirs from index (FTS + vectors) |
 | `index_prune` | opt | Drop orphans missing on disk / outside roots |
 | `search_local` | 2–3 | Query persisted index |
+| `lookup_symbol` | opt | Code symbol definitions (Python v1) |
+| `find_references` | opt | Best-effort code refs (Python v1) |
 | `search_web` | 4 | Internet search via LangSearch |
 
 ## Web search (phase 4)
@@ -77,7 +81,7 @@ Hybrid text-search MCP server in Go.
 - **Embedding quality (`opt-better-embeddings`):** `SEARCHIFY_EMBED_MODEL` selects a kjarni model — `minilm-l6-v2` (384-d, default), `mpnet-base-v2` / `distilbert-base` (768-d). Unknown names fail at config load. Switching models clears `chunk_vectors` on the next embed/index write and vector search refuses mismatched meta until `searchify embed --force` (or re-index). Process/skip-embed backends unchanged. No multilingual embed in kjarni today.
 - **Embed engine adapter (`opt-embed-engine-adapter`):** `SEARCHIFY_EMBED_ENGINE=kjarni|ollama|http` selects the vector factory (`Embedder`). Kjarni remains default (allowlisted models). Ollama calls `POST {SEARCHIFY_EMBED_URL}/api/embed` (default `http://127.0.0.1:11434`). HTTP posts `{"model","input"}` to a full URL. Meta stores `embed_engine` + `embed_model`; mismatch clears vectors on write and fails vector search until `embed --force`. `SEARCHIFY_EMBED_BACKEND` still means *where* embeds run.
 - **Chunking quality (`opt-better-chunking`):** `SEARCHIFY_CHUNK_BYTES` (default 3072) and `SEARCHIFY_CHUNK_OVERLAP` (default 256) pack extracted text. Hard boundaries: Markdown ATX headings, form-feed `\f` (PDF pages), blank-line paragraphs; oversized units hard-split. Changing chunk settings needs `searchify index --force` (+ embed refresh). Cap still `SEARCHIFY_MAX_CHUNKS_PER_FILE`.
-- **Code symbols (`opt-code-symbols`):** planned — language `Analyzer` plugins, Python-first AST worker, symbol/ref tables, MCP `lookup_symbol` / `find_references`. See [ADR 001](./adr/001-code-symbols.md). Not implemented yet.
+- **Code symbols (`opt-code-symbols`):** language `Analyzer` plugins; Python AST worker (`python3` on PATH, fail-soft to text chunks); schema v4 `chunk_symbols` / `symbols` / `symbol_refs`; MCP `lookup_symbol` / `find_references`; `search_local` may include `symbol` / `symbol_kind`. See [ADR 001](./adr/001-code-symbols.md). Re-index `.py` with `--force` after upgrade.
 - **Extract memory:** PDF/Office/HTML parsers (especially `ledongthuc/pdf`) can hang or spike multi-GB heap on some real-world PDFs. Default: index spawns short-lived `searchify extract --file` for non-passthrough types; PDF prefers **`pdftotext`** (Poppler) when on `PATH`, else page-loop Go parser; extract timeouts become **skip** so the rest of the corpus continues (`SEARCHIFY_EXTRACT_INPROCESS=1` restores old in-process behavior).
 - Vector search is brute-force cosine today; ANN/HNSW is optional when corpora grow (backlog `opt-hnsw-vectors`)
 - Storage stays SQLite FTS5 + blob vectors by default; optional store adapter (backlog `opt-store-adapter`) would select backend via config (e.g. `SEARCHIFY_STORE=sqlite|postgres`) so PostgreSQL + pgvector can replace the local DB without changing MCP tools

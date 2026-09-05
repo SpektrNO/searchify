@@ -215,10 +215,21 @@ func (s *Service) searchKeyword(query string, limit, snippetMax int) ([]search.R
 	if err != nil {
 		return nil, err
 	}
+	syms, err := s.chunkSymbolsByIDs(ids)
+	if err != nil {
+		return nil, err
+	}
 	for i := range results {
-		if p := pages[results[i].ID]; p > 0 {
+		id := results[i].ID
+		base := filepath.Base(results[i].Path)
+		if p := pages[id]; p > 0 {
 			results[i].Page = p
-			results[i].Title = formatHitTitle(filepath.Base(results[i].Path), results[i].Line, p)
+			results[i].Title = formatHitTitle(base, results[i].Line, p)
+		}
+		if cs := syms[id]; cs.Symbol != "" {
+			results[i].Symbol = cs.Symbol
+			results[i].Kind = cs.Kind
+			results[i].Title = fmt.Sprintf("%s:%s", base, cs.Symbol)
 		}
 	}
 	return results, nil
@@ -423,20 +434,31 @@ func (s *Service) resultsByChunkIDs(ids []string, scores map[string]float64, sni
 	if err != nil {
 		return nil, err
 	}
+	syms, err := s.chunkSymbolsByIDs(ids)
+	if err != nil {
+		return nil, err
+	}
 
 	byID := make(map[string]search.Result, len(ids))
 	for _, r := range raw {
 		page := pages[r.id]
 		base := filepath.Base(r.filePath)
+		cs := syms[r.id]
+		title := formatHitTitle(base, r.lineStart, page)
+		if cs.Symbol != "" {
+			title = fmt.Sprintf("%s:%s", base, cs.Symbol)
+		}
 		byID[r.id] = search.Result{
 			ID:      r.id,
-			Title:   formatHitTitle(base, r.lineStart, page),
+			Title:   title,
 			Path:    r.filePath,
 			Snippet: trimSnippet(r.text, snippetMax),
 			Score:   scores[r.id],
 			Source:  "local",
 			Line:    r.lineStart,
 			Page:    page,
+			Symbol:  cs.Symbol,
+			Kind:    cs.Kind,
 		}
 	}
 
@@ -473,6 +495,38 @@ func (s *Service) chunkPagesByIDs(ids []string) (map[string]int, error) {
 			return nil, err
 		}
 		out[id] = page
+	}
+	return out, rows.Err()
+}
+
+type chunkSymbolMeta struct {
+	Symbol string
+	Kind   string
+}
+
+func (s *Service) chunkSymbolsByIDs(ids []string) (map[string]chunkSymbolMeta, error) {
+	out := make(map[string]chunkSymbolMeta, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	q := fmt.Sprintf(`SELECT chunk_id, symbol, kind FROM chunk_symbols WHERE chunk_id IN (%s)`, joinPlaceholders(placeholders))
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, sym, kind string
+		if err := rows.Scan(&id, &sym, &kind); err != nil {
+			return nil, err
+		}
+		out[id] = chunkSymbolMeta{Symbol: sym, Kind: kind}
 	}
 	return out, rows.Err()
 }

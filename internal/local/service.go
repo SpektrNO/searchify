@@ -13,11 +13,12 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/spektr/searchify/internal/code"
 	"github.com/spektr/searchify/internal/config"
 	"github.com/spektr/searchify/internal/extract"
 )
 
-const schemaVersion = 3
+const schemaVersion = 4
 
 type Service struct {
 	cfg                 *config.Config
@@ -139,6 +140,12 @@ func (s *Service) migrate() error {
 		if err := s.migrateToV3(tx); err != nil {
 			return err
 		}
+		version = 3
+	}
+	if version < 4 {
+		if err := s.migrateToV4(tx); err != nil {
+			return err
+		}
 	}
 
 	if _, err := tx.Exec(`DELETE FROM schema_version`); err != nil {
@@ -211,6 +218,50 @@ func (s *Service) migrateToV3(tx *sql.Tx) error {
 		page INTEGER NOT NULL
 	)`); err != nil {
 		return fmt.Errorf("migrate v3: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) migrateToV4(tx *sql.Tx) error {
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS chunk_symbols (
+			chunk_id TEXT PRIMARY KEY,
+			symbol TEXT NOT NULL,
+			kind TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS symbols (
+			id TEXT PRIMARY KEY,
+			path TEXT NOT NULL,
+			lang TEXT NOT NULL,
+			kind TEXT NOT NULL,
+			name TEXT NOT NULL,
+			qual_name TEXT NOT NULL,
+			line INTEGER NOT NULL,
+			end_line INTEGER NOT NULL,
+			col INTEGER NOT NULL,
+			chunk_id TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_symbols_qual ON symbols(qual_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name)`,
+		`CREATE INDEX IF NOT EXISTS idx_symbols_path ON symbols(path)`,
+		`CREATE TABLE IF NOT EXISTS symbol_refs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			path TEXT NOT NULL,
+			lang TEXT NOT NULL,
+			kind TEXT NOT NULL,
+			name TEXT NOT NULL,
+			qual_name TEXT NOT NULL,
+			line INTEGER NOT NULL,
+			col INTEGER NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_symbol_refs_name ON symbol_refs(name)`,
+		`CREATE INDEX IF NOT EXISTS idx_symbol_refs_qual ON symbol_refs(qual_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_symbol_refs_path ON symbol_refs(path)`,
+	}
+	for _, stmt := range stmts {
+		if _, err := tx.Exec(stmt); err != nil {
+			return fmt.Errorf("migrate v4: %w", err)
+		}
 	}
 	return nil
 }
@@ -297,25 +348,68 @@ func (s *Service) deleteFileChunks(path string) error {
 	); err != nil {
 		return err
 	}
+	if _, err := s.db.Exec(
+		`DELETE FROM chunk_symbols WHERE chunk_id IN (SELECT id FROM chunks_fts WHERE file_path = ?)`,
+		path,
+	); err != nil {
+		return err
+	}
+	if _, err := s.db.Exec(`DELETE FROM symbols WHERE path = ?`, path); err != nil {
+		return err
+	}
+	if _, err := s.db.Exec(`DELETE FROM symbol_refs WHERE path = ?`, path); err != nil {
+		return err
+	}
 	_, err := s.db.Exec(`DELETE FROM chunks_fts WHERE file_path = ?`, path)
 	return err
 }
 
 func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (string, error) {
-	chunks, err := chunkFile(content, ChunkParams{
+	params := ChunkParams{
 		TargetBytes:  s.cfg.ChunkBytes,
 		OverlapBytes: s.cfg.ChunkOverlap,
-	})
+	}
+	var warn string
+	var analyzeLang string
+	var codeResult code.Result
+
+	chunks, err := chunkFile(content, params)
 	if err != nil {
 		return "", err
 	}
+
+	if a := code.ForPath(path); a != nil {
+		res, aerr := a.Analyze(path, content)
+		if aerr != nil {
+			warn = fmt.Sprintf("code analyze failed (%v); using text chunks", aerr)
+		} else if len(res.Units) > 0 {
+			codeResult = res
+			analyzeLang = a.Lang()
+			cc := code.ChunkFromUnits(content, res.Units, params.TargetBytes, params.OverlapBytes)
+			chunks = make([]chunk, 0, len(cc))
+			for i, c := range cc {
+				chunks = append(chunks, chunk{
+					Index:     i,
+					LineStart: c.LineStart,
+					LineEnd:   c.LineEnd,
+					Symbol:    c.Symbol,
+					Kind:      c.Kind,
+					Text:      c.Text,
+				})
+			}
+		}
+	}
+
 	maxChunks := s.cfg.MaxChunksPerFile
 	if maxChunks <= 0 {
 		maxChunks = 64
 	}
-	var warn string
 	if len(chunks) > maxChunks {
-		warn = fmt.Sprintf("truncated to %d chunks (SEARCHIFY_MAX_CHUNKS_PER_FILE)", maxChunks)
+		msg := fmt.Sprintf("truncated to %d chunks (SEARCHIFY_MAX_CHUNKS_PER_FILE)", maxChunks)
+		if warn != "" {
+			warn += "; "
+		}
+		warn += msg
 		chunks = chunks[:maxChunks]
 	}
 	if err := s.deleteFileChunks(path); err != nil {
@@ -324,6 +418,7 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 
 	chunkIDs := make([]string, 0, len(chunks))
 	texts := make([]string, 0, len(chunks))
+	symbolToChunk := make(map[string]string)
 	for _, c := range chunks {
 		id := fmt.Sprintf("%s#chunk-%d", path, c.Index)
 		chunkIDs = append(chunkIDs, id)
@@ -343,6 +438,21 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 			); err != nil {
 				return warn, err
 			}
+		}
+		if c.Symbol != "" {
+			if _, err := s.db.Exec(
+				`INSERT INTO chunk_symbols(chunk_id, symbol, kind) VALUES (?, ?, ?)`,
+				id, c.Symbol, c.Kind,
+			); err != nil {
+				return warn, err
+			}
+			symbolToChunk[c.Symbol] = id
+		}
+	}
+
+	if analyzeLang != "" {
+		if err := s.storeCodeAnalysis(path, analyzeLang, codeResult, symbolToChunk); err != nil {
+			return warn, err
 		}
 	}
 
@@ -390,6 +500,45 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 		}
 	}
 	return warn, nil
+}
+
+func (s *Service) storeCodeAnalysis(path, lang string, res code.Result, symbolToChunk map[string]string) error {
+	for _, sym := range res.Symbols {
+		qn := sym.QualName
+		if qn == "" {
+			qn = sym.Name
+		}
+		id := fmt.Sprintf("%s#%s#%d", path, qn, sym.Line)
+		chunkID := symbolToChunk[qn]
+		if _, err := s.db.Exec(
+			`INSERT INTO symbols(id, path, lang, kind, name, qual_name, line, end_line, col, chunk_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, path, lang, sym.Kind, sym.Name, qn, sym.Line, sym.EndLine, sym.Col, nullIfEmpty(chunkID),
+		); err != nil {
+			return err
+		}
+	}
+	for _, ref := range res.Refs {
+		qn := ref.QualName
+		if qn == "" {
+			qn = ref.Name
+		}
+		if _, err := s.db.Exec(
+			`INSERT INTO symbol_refs(path, lang, kind, name, qual_name, line, col)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			path, lang, ref.Kind, ref.Name, qn, ref.Line, ref.Col,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 func (s *Service) runEmbedWorker(path string) error {

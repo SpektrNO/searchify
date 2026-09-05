@@ -17,6 +17,8 @@ type chunk struct {
 	LineStart int
 	LineEnd   int
 	PageStart int // 0 = no form-feed page markers; else 1-based PDF page
+	Symbol    string
+	Kind      string
 	Text      string
 }
 
