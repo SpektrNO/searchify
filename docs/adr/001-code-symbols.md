@@ -65,5 +65,5 @@ Same tables and MCP tools; string `kind` / `lang` values, no schema fork.
 
 **Operational**
 
-- Implementation tracked as backlog `opt-code-symbols` (⬜ until shipped).
+- Implementation tracked as backlog `opt-code-symbols` (✅).
 - Spec/implement via normal `/spec-only` or `/lean-implement opt-code-symbols` when prioritized.
