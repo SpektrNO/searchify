@@ -13,7 +13,7 @@ import (
 
 const (
 	serverName    = "searchify"
-	serverVersion = "0.9.2"
+	serverVersion = "0.9.3"
 )
 
 type Server struct {
@@ -95,12 +95,12 @@ func (s *Server) registerTools() {
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name:        "lookup_symbol",
-		Description: "Look up code symbol definitions (name/qual_name) from the symbol index (Python, Go, TypeScript/JS).",
+		Description: "Look up code symbol definitions (name/qual_name) from the symbol index (Python, Go, TypeScript/JS, C#).",
 	}, s.lookupSymbol)
 
 	mcp.AddTool(s.mcp, &mcp.Tool{
 		Name:        "find_references",
-		Description: "Find best-effort code references matching a symbol name or qual_name (Python, Go, TypeScript/JS).",
+		Description: "Find best-effort code references matching a symbol name or qual_name (Python, Go, TypeScript/JS, C#).",
 	}, s.findReferences)
 
 	mcp.AddTool(s.mcp, &mcp.Tool{

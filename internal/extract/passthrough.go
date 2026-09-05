@@ -8,7 +8,8 @@ import (
 )
 
 var passthroughExts = map[string]struct{}{
-	".md": {}, ".txt": {}, ".go": {}, ".ts": {}, ".tsx": {}, ".js": {},
+	".md": {}, ".txt": {}, ".go": {}, ".ts": {}, ".tsx": {}, ".js": {}, ".jsx": {},
+	".cs": {},
 	".json": {}, ".yaml": {}, ".yml": {}, ".sql": {}, ".sh": {}, ".py": {}, ".rs": {},
 	// Cheap P1 text expands
 	".xml": {}, ".toml": {}, ".ini": {}, ".log": {}, ".rst": {}, ".adoc": {}, ".markdown": {},
