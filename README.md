@@ -349,7 +349,7 @@ Re-indexing does **not** remove deleted files from the index. Use `remove_paths`
 
 ### Indexable file types
 
-Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`. `.py` uses AST-aware chunking when `python3` is on `PATH` (else text chunks). Index walks skip `venv` / `.venv` / `__pycache__` / `.tox` / `.mypy_cache` (and existing skips).
+Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`. `.py` uses AST-aware chunking when `python3` is on `PATH` (else text chunks). `.go` uses in-process `go/parser` analysis (fail-soft to text on parse error). Index walks skip `venv` / `.venv` / `__pycache__` / `.tox` / `.mypy_cache` (and existing skips).
 
 Extracted formats: `.pdf` `.docx` `.xlsx` `.csv` `.html`/`.htm`, plus stretch `.pptx` `.odt`/`.ods`/`.odp` `.rtf` `.eml`. Images (`.png` `.jpg` `.jpeg` `.webp` `.tif` `.tiff` `.gif`) index only when `SEARCHIFY_OCR=1`. Other extensions are ignored. `index_status` reports `ocr_enabled` and `index_extensions`.
 
@@ -406,7 +406,7 @@ Responses include `duration_ms` (wall clock). `search_local` also returns a `tim
 
 ### `lookup_symbol`
 
-Look up indexed code definitions (Python v1; requires re-index of `.py` with `python3` on PATH).
+Look up indexed code definitions (Python / Go; requires re-index of `.py`/`.go` — Python needs `python3` on PATH).
 
 ```json
 {
@@ -431,7 +431,7 @@ Best-effort references (`import` / `call` / `name`) for a symbol.
 
 ### Upgrading from phase 2
 
-Schema v2 adds vector storage. Existing keyword indexes keep working. Run `index_paths` with `"force": true` (or `searchify index --force`) once to embed all chunks. Schema v4 adds code symbol tables — re-index Python trees after upgrading to MCP **0.9.0**.
+Schema v2 adds vector storage. Existing keyword indexes keep working. Run `index_paths` with `"force": true` (or `searchify index --force`) once to embed all chunks. Schema v4 adds code symbol tables — re-index Python/Go trees after upgrading (MCP **0.9.1**+ for Go analyzer).
 
 ### `search_web`
 
