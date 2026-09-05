@@ -349,7 +349,7 @@ Re-indexing does **not** remove deleted files from the index. Use `remove_paths`
 
 ### Indexable file types
 
-Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`.
+Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`. `.py` uses AST-aware chunking when `python3` is on `PATH` (else text chunks). Index walks skip `venv` / `.venv` / `__pycache__` / `.tox` / `.mypy_cache` (and existing skips).
 
 Extracted formats: `.pdf` `.docx` `.xlsx` `.csv` `.html`/`.htm`, plus stretch `.pptx` `.odt`/`.ods`/`.odp` `.rtf` `.eml`. Images (`.png` `.jpg` `.jpeg` `.webp` `.tif` `.tiff` `.gif`) index only when `SEARCHIFY_OCR=1`. Other extensions are ignored. `index_status` reports `ocr_enabled` and `index_extensions`.
 
@@ -400,13 +400,38 @@ Search the persisted index. Default mode is `hybrid` when vectors exist, otherwi
 
 Modes: `keyword` (FTS5 BM25), `vector` (cosine similarity), `hybrid` (RRF fusion). Set `rerank: true` to reorder results with LangSearch (requires `LANGSEARCH_API_KEY`). Optional `snippet_max` overrides `SEARCHIFY_SNIPPET_CHARS` (default 300, hard max 8000).
 
-PDF / PPTX / ODP hits (form-feed page or slide breaks at extract time) include `page` (1-based) and title like `doc.pdf:p.3` or `deck.pptx:p.2`. Other files keep `line` / `name.md:42`. Re-index after upgrading so `chunk_pages` is populated.
+PDF / PPTX / ODP hits (form-feed page or slide breaks at extract time) include `page` (1-based) and title like `doc.pdf:p.3` or `deck.pptx:p.2`. Python code hits may include `symbol` / `symbol_kind` and title `mod.py:Class.method` when analyzed. Other files keep `line` / `name.md:42`. Re-index after upgrading so `chunk_pages` / symbol tables populate.
 
 Responses include `duration_ms` (wall clock). `search_local` also returns a `timing` breakdown (`keyword_ms` / `vector_ms` / `rrf_ms` / `rerank_ms`) for the legs that ran.
 
+### `lookup_symbol`
+
+Look up indexed code definitions (Python v1; requires re-index of `.py` with `python3` on PATH).
+
+```json
+{
+  "query": "Greeter",
+  "kind": "class",
+  "limit": 20
+}
+```
+
+Optional `path_prefix`. Matches `name` / `qual_name` exactly or as prefix.
+
+### `find_references`
+
+Best-effort references (`import` / `call` / `name`) for a symbol.
+
+```json
+{
+  "symbol": "hello",
+  "limit": 20
+}
+```
+
 ### Upgrading from phase 2
 
-Schema v2 adds vector storage. Existing keyword indexes keep working. Run `index_paths` with `"force": true` (or `searchify index --force`) once to embed all chunks.
+Schema v2 adds vector storage. Existing keyword indexes keep working. Run `index_paths` with `"force": true` (or `searchify index --force`) once to embed all chunks. Schema v4 adds code symbol tables — re-index Python trees after upgrading to MCP **0.9.0**.
 
 ### `search_web`
 

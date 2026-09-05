@@ -1,45 +1,61 @@
-# Handoff: opt-code-symbols
+# Handoff: {{title}}
 
-**Status:** implementing  
-**Created:** 2026-09-05  
-**Specifier:** lean thin handoff  
-**Developer:** in-supervisor
+**Status:** spec | implementing | done | blocked  
+**Created:** {{date}}  
+**Specifier:** spec complete  
+**Developer:** pending
 
 ## GitHub tracking
 
 | Field | Value |
 |-------|-------|
-| Feature id | `opt-code-symbols` |
-| Parent issue | #60 — https://github.com/SpektrNO/searchify/issues/60 |
-| Open tasks | `engine` #62, `verify` #63, `docs` #64 |
+| Feature id | `{{feature_id}}` |
+| Parent issue | #{{parent_number}} — {{parent_url}} |
+| Open tasks | `spec`, `engine`, … (update as closed) |
 
-Task order: `spec` → `engine` → `verify` → `docs`
+Task order: `audit` → `spec` → `engine` → `verify` → `docs`
 
 ## Intent
 
-Python-first code-aware chunking and a symbol/reference index with MCP `lookup_symbol` / `find_references`, per [ADR 001](../adr/001-code-symbols.md).
-
-## Acceptance
-
-- `.py` files chunk on AST units when `python3` works; otherwise text chunker + warn.
-- Schema v4: `chunk_symbols`, `symbols`, `symbol_refs`; cleaned on file delete/reindex.
-- MCP `lookup_symbol`, `find_references`; `search_local` may include `symbol` / `symbol_kind`.
-- Walk skips `venv`, `.venv`, `__pycache__`, `.tox`, `.mypy_cache` (plus existing skips).
-- `go test ./...` passes; MCP **0.9.0**.
+One sentence: what capability this feature adds and why.
 
 ## Technical contract
 
 | Area | Requirement |
 |------|-------------|
-| MCP | `lookup_symbol` (`query`, optional `kind`, `path_prefix`, `limit`); `find_references` (`symbol`, optional `path_prefix`, `limit`) |
-| Search | Enrich local hits from `chunk_symbols` |
-| Schema | v4 side tables; no FTS5 ALTER |
-| Parser | `internal/code` Analyzer; Python AST worker (JSON); fail-soft |
+| MCP tools | New or changed tool names, inputs, outputs |
+| Search mode | keyword / vector / hybrid |
+| Performance | Latency or throughput targets |
+| Acceptance | Observable pass/fail criteria |
+
+## Touchpoints
+
+- Files or packages likely to change (best guess; dev agent confirms)
+- Must not contradict [architecture.md](../architecture.md)
 
 ## Out of scope
 
-Knowledge graph; Go/TS/C# analyzers; full type inference; HNSW.
+What this handoff explicitly does **not** include.
 
-## Spec / ADR
+---
 
-[docs/adr/001-code-symbols.md](../adr/001-code-symbols.md)
+## Implementation result
+
+*(Developer agent fills this section.)*
+
+### Changes
+
+- 
+
+### Verification
+
+- [ ] How tested
+- [ ] What remains manual
+
+### Deviations from spec
+
+- None / list with rationale
+
+### Follow-ups
+
+- 

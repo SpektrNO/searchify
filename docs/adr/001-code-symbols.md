@@ -1,6 +1,6 @@
 # ADR 001: Code-aware chunking and symbol index
 
-- **Status:** Accepted (not implemented)
+- **Status:** Accepted (implemented)
 - **Date:** 2026-09-05
 - **Backlog:** [`opt-code-symbols`](../feature-backlog.md)
 - **Deciders:** Searchify maintainers / Spektr
