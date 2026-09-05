@@ -30,11 +30,13 @@ v1 targets **Python**; Go, TypeScript, and C# must fit the same design later. Wi
 
 ### Follow-on language approach (non-binding detail)
 
-| Lang | Expected analyzer | Notes |
-|------|-------------------|--------|
-| Go | `go/parser` in-process | No worker |
-| TypeScript | Node/ts-morph or Tree-sitter worker | PATH or grammar dep |
-| C# | Roslyn-oriented worker | `dotnet` on PATH |
+Tracked as separate backlog rows (⬜):
+
+| Backlog ID | Lang | Expected analyzer | Notes |
+|------------|------|-------------------|--------|
+| `opt-code-symbols-go` | Go | `go/parser` in-process | No worker |
+| `opt-code-symbols-ts` | TypeScript / JS | Node/ts-morph or Tree-sitter worker | Needs Node on PATH |
+| `opt-code-symbols-csharp` | C# | Roslyn-oriented worker | Needs `dotnet` on PATH |
 
 Same tables and MCP tools; string `kind` / `lang` values, no schema fork.
 
