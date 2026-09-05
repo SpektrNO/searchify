@@ -76,6 +76,9 @@ func TestForPathAnalyzers(t *testing.T) {
 	if code.ForPath("x.js") == nil || code.ForPath("x.jsx") == nil {
 		t.Fatal("expected js analyzer")
 	}
+	if code.ForPath("x.cs") == nil {
+		t.Fatal("expected csharp analyzer")
+	}
 	if code.ForPath("x.rs") != nil {
 		t.Fatal("rust analyzer not in v1")
 	}
@@ -196,5 +199,63 @@ export const arrowFn = (n: number) => n + 1;
 	chunks := code.ChunkFromUnits(src, res.Units, 3072, 0)
 	if len(chunks) < 2 {
 		t.Fatalf("chunks=%d", len(chunks))
+	}
+}
+
+func TestCSharpAnalyze(t *testing.T) {
+	src := []byte(`using System;
+using System.IO;
+
+namespace Demo;
+
+public class Greeter {
+  public int Hello(int x) {
+    Console.WriteLine(x);
+    return x;
+  }
+}
+
+public struct Point { }
+`)
+	a := code.CSharpAnalyzer{}
+	res, err := a.Analyze("sample.cs", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawClass, sawStruct bool
+	for _, u := range res.Units {
+		switch u.Name {
+		case "Greeter":
+			sawClass = true
+			if u.Kind != "class" {
+				t.Fatalf("Greeter kind=%s", u.Kind)
+			}
+		case "Point":
+			sawStruct = true
+		}
+	}
+	if !sawClass || !sawStruct {
+		t.Fatalf("units=%#v", res.Units)
+	}
+	var sawMethod bool
+	for _, s := range res.Symbols {
+		if s.QualName == "Greeter.Hello" {
+			sawMethod = true
+		}
+	}
+	if !sawMethod {
+		t.Fatalf("expected Greeter.Hello: %#v", res.Symbols)
+	}
+	var sawImport, sawCall bool
+	for _, r := range res.Refs {
+		if r.Kind == "import" && (r.QualName == "System" || strings.Contains(r.QualName, "System")) {
+			sawImport = true
+		}
+		if r.Kind == "call" && (r.Name == "WriteLine" || r.QualName == "Console.WriteLine") {
+			sawCall = true
+		}
+	}
+	if !sawImport || !sawCall {
+		t.Fatalf("refs=%#v", res.Refs)
 	}
 }
