@@ -1,61 +1,42 @@
-# Handoff: {{title}}
+# Handoff: opt-code-symbols-ts
 
-**Status:** spec | implementing | done | blocked  
-**Created:** {{date}}  
-**Specifier:** spec complete  
-**Developer:** pending
+**Status:** implementing  
+**Created:** 2026-09-05  
+**Specifier:** lean thin handoff  
+**Developer:** in-supervisor
 
 ## GitHub tracking
 
 | Field | Value |
 |-------|-------|
-| Feature id | `{{feature_id}}` |
-| Parent issue | #{{parent_number}} — {{parent_url}} |
-| Open tasks | `spec`, `engine`, … (update as closed) |
+| Feature id | `opt-code-symbols-ts` |
+| Parent issue | #71 — https://github.com/SpektrNO/searchify/issues/71 |
+| Open tasks | `engine`, `verify`, `docs` |
 
-Task order: `audit` → `spec` → `engine` → `verify` → `docs`
+Task order: `spec` → `engine` → `verify` → `docs`
 
 ## Intent
 
-One sentence: what capability this feature adds and why.
+Node worker Analyzer for `.ts` / `.tsx` / `.js` / `.jsx` so TS/JS code gets symbol-aware chunks and `lookup_symbol` / `find_references`, matching ADR 001 (fail-soft when `node` missing).
 
 ## Technical contract
 
 | Area | Requirement |
 |------|-------------|
-| MCP tools | New or changed tool names, inputs, outputs |
-| Search mode | keyword / vector / hybrid |
-| Performance | Latency or throughput targets |
-| Acceptance | Observable pass/fail criteria |
+| MCP tools | Reuse `lookup_symbol` / `find_references`; bump MCP patch version; mention TS/JS in descriptions |
+| Analyzer | `TSAnalyzer` via short-lived Node worker; prefer `typescript` from project `node_modules` (walk-up); else built-in heuristic AST-ish parse |
+| Fail-soft | No `node` or worker error → text chunks (existing path) |
+| Exts | `.ts` `.tsx` `.js` `.jsx` |
+| Acceptance | `go test` covers analyzer (+ index lookup when Node present); docs/backlog ✅ |
 
 ## Touchpoints
 
-- Files or packages likely to change (best guess; dev agent confirms)
-- Must not contradict [architecture.md](../architecture.md)
+- `internal/code/` (worker + Go wrapper)
+- README / architecture / ADR 001 follow-on table
+- MCP tool blurbs + version
 
 ## Out of scope
 
-What this handoff explicitly does **not** include.
-
----
-
-## Implementation result
-
-*(Developer agent fills this section.)*
-
-### Changes
-
-- 
-
-### Verification
-
-- [ ] How tested
-- [ ] What remains manual
-
-### Deviations from spec
-
-- None / list with rationale
-
-### Follow-ups
-
-- 
+- ts-morph dependency / shipping `node_modules`
+- Cross-file type resolution / full LSP
+- C# analyzer
