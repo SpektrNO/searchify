@@ -4,6 +4,7 @@ Hybrid text search MCP server written in Go. Search local files, indexed corpora
 
 ## Docs
 
+- [**Setup & run**](docs/how-to-setup.md) — install, index, MCP stdio, HTTP server
 - [Architecture](docs/architecture.md)
 - [ADRs](docs/adr/README.md)
 - [Troubleshooting](docs/troubleshooting.md)
