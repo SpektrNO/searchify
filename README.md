@@ -214,7 +214,7 @@ Typical flow:
 
 - Unchanged files (same size + mtime as last index) are **skipped** (`skipped=` in the CLI summary).
 - New or modified files are extracted and indexed/updated.
-- `--force` (CLI) or `"force": true` (REST/MCP) re-processes every matching file even when metadata is unchanged.
+- `--force` (CLI), `make index-force` (loads `.env`, indexes every `SEARCHIFY_ROOTS` entry; safe beside `make run-http`), or `"force": true` (REST/MCP) re-processes every matching file even when metadata is unchanged. HTTP `POST /v1/index` is limited to 60s, so a full tree belongs on the CLI.
 - Deletes are **not** inferred by a normal index pass. Use `searchify remove` / `remove_paths`, or `searchify prune` / `index_prune`, for orphans.
 
 CLI `index` prints progress on **stderr** (`[i/N] indexing …`) so long catalogues are distinguishable from a hang; the final `indexed=` line is on stdout.

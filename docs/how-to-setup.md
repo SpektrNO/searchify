@@ -37,6 +37,8 @@ Serving does **not** crawl roots by itself. Index first:
 ```bash
 export SEARCHIFY_ROOTS="/path/to/code,/path/to/docs"   # one or more roots
 ./bin/searchify index --skip-embed "$SEARCHIFY_ROOTS"  # fast FTS-only first pass
+# full re-index of every root in .env, even while serve http is up:
+# make index-force
 # later, for hybrid/vector search:
 # ./bin/searchify embed --force
 ```
