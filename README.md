@@ -146,6 +146,7 @@ Requires a non-empty `SEARCHIFY_HTTP_TOKEN`. Prefer binding to localhost; put TL
 export SEARCHIFY_ROOTS="/home/you/dev"
 export SEARCHIFY_HTTP_TOKEN="dev-secret"
 ./bin/searchify serve http --addr 127.0.0.1:8080 --path /mcp
+# or, from a checkout with .env: make run-http
 # GET http://127.0.0.1:8080/healthz → ok
 ```
 

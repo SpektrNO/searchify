@@ -79,6 +79,7 @@ Same process serves **Streamable HTTP MCP** (`/mcp` by default), **`/healthz`**,
 export SEARCHIFY_ROOTS="/path/to/code,/path/to/docs"
 export SEARCHIFY_HTTP_TOKEN="change-me"
 ./bin/searchify serve http --addr 127.0.0.1:8080 --path /mcp
+# from a checkout, with those vars in .env: make run-http
 # curl -sS http://127.0.0.1:8080/healthz
 ```
 
