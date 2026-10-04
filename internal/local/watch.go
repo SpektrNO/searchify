@@ -117,7 +117,7 @@ func (w *IndexWatcher) addRecursive(watcher *fsnotify.Watcher, root string) erro
 		if !d.IsDir() {
 			return nil
 		}
-		if path != root && shouldSkipDir(d.Name()) {
+		if path != root && w.cfg.SkipPath(path) {
 			return filepath.SkipDir
 		}
 		if err := watcher.Add(path); err != nil {
@@ -132,8 +132,7 @@ func (w *IndexWatcher) handleEvent(watcher *fsnotify.Watcher, ev fsnotify.Event)
 	if !w.cfg.UnderAnyRoot(path) {
 		return
 	}
-	base := filepath.Base(path)
-	if shouldSkipDir(base) {
+	if w.cfg.PathHasSkipDir(path) {
 		return
 	}
 

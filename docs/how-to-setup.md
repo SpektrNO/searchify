@@ -43,7 +43,7 @@ export SEARCHIFY_ROOTS="/path/to/code,/path/to/docs"   # one or more roots
 # ./bin/searchify embed --force
 ```
 
-Default index DB: `~/.searchify/index` (override with `SEARCHIFY_INDEX_DIR`).
+Default index DB: `~/.searchify/index` (override with `SEARCHIFY_INDEX_DIR`). Walks skip `node_modules`, `site-packages`, `bin`, `venv`, and similar dependency folders. `SEARCHIFY_EXCLUDE_DIRS` adds names or patterns (`*cache*`, `python*/site-packages`). `searchify prune` drops rows already stored under those folders.
 
 ## 4. Run as MCP (stdio) — local Cursor
 

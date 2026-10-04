@@ -17,7 +17,8 @@ type PruneReport struct {
 	Messages []string `json:"messages,omitempty"`
 }
 
-// PruneIndex drops indexed files that are missing on disk or outside current roots.
+// PruneIndex drops indexed files that are missing on disk, outside current roots,
+// or under a skipped directory name.
 // If paths is empty, all indexed files are considered. dryRun counts orphans without deleting.
 func (s *Service) PruneIndex(paths []string, dryRun bool) (PruneReport, error) {
 	report := PruneReport{DryRun: dryRun}
@@ -169,7 +170,7 @@ func (s *Service) listAllIndexedPaths() ([]string, error) {
 }
 
 func (s *Service) isOrphanIndexedPath(p string) (bool, error) {
-	if !s.cfg.UnderAnyRoot(p) {
+	if !s.cfg.UnderAnyRoot(p) || s.cfg.PathHasSkipDir(p) {
 		return true, nil
 	}
 	_, err := os.Stat(p)

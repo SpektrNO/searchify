@@ -311,6 +311,7 @@ Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) into your Cursor MCP
 | `SEARCHIFY_INDEX_DIR` | no | Index path (default: `~/.searchify/index`) |
 | `SEARCHIFY_PATH_BASE` | no | Preferred base for relative tool/CLI paths (must be under a root) |
 | `SEARCHIFY_WATCH_PATHS` | no | Comma-separated paths to auto-index (under roots); empty disables watch |
+| `SEARCHIFY_EXCLUDE_DIRS` | no | Extra directory patterns, comma-separated. A plain name (`bin`) skips every directory with that name. `*` and `?` glob one segment (`*cache*`). A slash pattern matches a directory suffix (`python*/site-packages`, `**/third_party`; `**` spans segments). Built-ins already include `node_modules`, `bin`, `venv`, `.venv`, `site-packages`, `dist-packages`, `__pypackages__`, `.yarn`, `.pnpm-store`, `bower_components`, and `*.egg-info` |
 | `SEARCHIFY_WATCH_DEBOUNCE` | no | Coalesce fs events (Go duration, default `1s`) |
 | `SEARCHIFY_WATCH_RESCAN` | no | Periodic re-index of watch paths (e.g. `5m`); `0`/empty disables |
 | `SEARCHIFY_OCR` | no | `1`/`true`/`on` enables OCR for images and scanned-PDF fallback (needs `tesseract` on `PATH`; PDF OCR also needs `pdftoppm`) |
@@ -352,7 +353,7 @@ Re-indexing does **not** remove deleted files from the index. Use `remove_paths`
 
 ### Indexable file types
 
-Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.jsx` `.cs` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`. `.py` uses AST-aware chunking when `python3` is on `PATH` (else text chunks). `.go` uses in-process `go/parser` analysis (fail-soft to text on parse error). `.ts` / `.tsx` / `.js` / `.jsx` use a Node worker when `node` is on `PATH` (prefers project `typescript`, else heuristic; fail-soft if Node missing). `.cs` uses Roslyn via `dotnet` when available, else an in-process heuristic. Index walks skip `venv` / `.venv` / `__pycache__` / `.tox` / `.mypy_cache` (and existing skips including `node_modules`).
+Passthrough text/code: `.md` `.txt` `.go` `.ts` `.tsx` `.js` `.jsx` `.cs` `.json` `.yaml` `.yml` `.sql` `.sh` `.py` `.rs` plus `.xml` `.toml` `.ini` `.log` `.rst` `.adoc` `.markdown`. `.py` uses AST-aware chunking when `python3` is on `PATH` (else text chunks). `.go` uses in-process `go/parser` analysis (fail-soft to text on parse error). `.ts` / `.tsx` / `.js` / `.jsx` use a Node worker when `node` is on `PATH` (prefers project `typescript`, else heuristic; fail-soft if Node missing). `.cs` uses Roslyn via `dotnet` when available, else an in-process heuristic. Index walks skip dependency and noise directories by name, anywhere in the tree: `node_modules`, `venv`, `.venv`, `site-packages`, `dist-packages`, `__pypackages__`, `__pycache__`, `.tox`, `.mypy_cache`, `.yarn`, `.pnpm-store`, `bower_components`, `jspm_packages`, `vendor`, `bin`, `.git`, and `*.egg-info`. `SEARCHIFY_EXCLUDE_DIRS` adds patterns: `bin` skips every `bin` directory, `*cache*` globs one segment, and `python*/site-packages` matches a directory suffix (`**` spans segments). Files already indexed under a skipped folder stay until `searchify prune`.
 
 Extracted formats: `.pdf` `.docx` `.xlsx` `.csv` `.html`/`.htm`, plus stretch `.pptx` `.odt`/`.ods`/`.odp` `.rtf` `.eml`. Images (`.png` `.jpg` `.jpeg` `.webp` `.tif` `.tiff` `.gif`) index only when `SEARCHIFY_OCR=1`. Other extensions are ignored. `index_status` reports `ocr_enabled` and `index_extensions`.
 
@@ -372,7 +373,7 @@ Remove files or directories from the local index (FTS chunks, vectors, and `file
 
 ### `index_prune`
 
-Reconcile the index with disk: drop rows for files that no longer exist, and for indexed paths outside current `SEARCHIFY_ROOTS`. Optional `paths` limits the scan; `dry_run` reports without deleting. Prefer `dry_run` first if mounts may be flaky.
+Reconcile the index with disk: drop rows for files that no longer exist, for indexed paths outside current `SEARCHIFY_ROOTS`, and for paths under a skipped directory (`site-packages`, `node_modules`, `SEARCHIFY_EXCLUDE_DIRS`, …). Optional `paths` limits the scan; `dry_run` reports without deleting. Prefer `dry_run` first if mounts may be flaky.
 
 ```json
 {

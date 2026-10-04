@@ -10,11 +10,6 @@ import (
 	"github.com/spektr/searchify/internal/extract"
 )
 
-var skipDirNames = map[string]struct{}{
-	".git": {}, ".cursor": {}, "node_modules": {}, "vendor": {}, "bin": {}, ".searchify": {},
-	"venv": {}, ".venv": {}, "__pycache__": {}, ".tox": {}, ".mypy_cache": {},
-}
-
 func collectIndexablePaths(cfg *config.Config, reg *extract.Registry, roots []string) ([]string, []string) {
 	var files []string
 	var messages []string
@@ -53,7 +48,7 @@ func collectIndexablePaths(cfg *config.Config, reg *extract.Registry, roots []st
 				return nil
 			}
 			if d.IsDir() {
-				if path != allowed && shouldSkipDir(d.Name()) {
+				if path != allowed && cfg.SkipPath(path) {
 					return filepath.SkipDir
 				}
 				return nil
@@ -79,11 +74,6 @@ func collectIndexablePaths(cfg *config.Config, reg *extract.Registry, roots []st
 	}
 
 	return files, messages
-}
-
-func shouldSkipDir(name string) bool {
-	_, ok := skipDirNames[name]
-	return ok
 }
 
 func formatByteLimit(n int64) string {
