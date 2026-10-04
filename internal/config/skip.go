@@ -185,6 +185,76 @@ func splitPattern(pattern string) []string {
 	return segs
 }
 
+// SkipFile reports whether the file's base name matches SEARCHIFY_EXCLUDE_FILES.
+// Patterns are exact names (go.sum) or globs (* and ?) on that name only.
+func (c *Config) SkipFile(filePath string) bool {
+	if c == nil || len(c.ExcludeFiles) == 0 {
+		return false
+	}
+	name := strings.ToLower(filepath.Base(filePath))
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	for _, pattern := range c.ExcludeFiles {
+		switch patternKind(pattern) {
+		case patternExact:
+			if strings.EqualFold(pattern, name) {
+				return true
+			}
+		case patternGlob:
+			ok, err := path.Match(strings.ToLower(pattern), name)
+			if err == nil && ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func parseExcludeFiles(raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var out []string
+	seen := map[string]struct{}{}
+	for _, part := range strings.Split(raw, ",") {
+		pattern := strings.TrimSpace(part)
+		if pattern == "" {
+			continue
+		}
+		pattern = strings.ReplaceAll(pattern, `\`, `/`)
+		if !validExcludeFilePattern(pattern) {
+			return nil, &excludeFileError{part: strings.TrimSpace(part)}
+		}
+		key := strings.ToLower(pattern)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, pattern)
+	}
+	return out, nil
+}
+
+func validExcludeFilePattern(pattern string) bool {
+	if strings.Contains(pattern, "/") || pattern == "*" || pattern == "**" {
+		return false
+	}
+	if pattern == "" || pattern == "." || pattern == ".." {
+		return false
+	}
+	if _, err := path.Match(pattern, "x"); err != nil {
+		return false
+	}
+	return patternKind(pattern) != patternPath
+}
+
+type excludeFileError struct{ part string }
+
+func (e *excludeFileError) Error() string {
+	return EnvExcludeFiles + " entry " + strconvQuote(e.part) + " is not a valid file name pattern"
+}
+
 func parseExcludeDirs(raw string) ([]string, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, nil

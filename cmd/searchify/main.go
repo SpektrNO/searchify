@@ -406,7 +406,7 @@ usage:
                                Backfill chunk vectors (in-process ONNX; prefer after --skip-embed)
   searchify remove <paths...>  Remove files/dirs from the local index
   searchify prune [--dry-run] [paths...]
-                               Drop index rows for missing files, out-of-root paths, or excluded dirs
+                               Drop index rows for missing files, out-of-root paths, or excluded dirs/files
   searchify serve http [--addr HOST:PORT] [--path /mcp]
                                Run MCP server over Streamable HTTP
 
@@ -417,6 +417,7 @@ environment:
   SEARCHIFY_PATH_BASE          Preferred base for relative paths (under a root)
   SEARCHIFY_WATCH_PATHS        Optional auto-index watch paths (under roots)
   SEARCHIFY_EXCLUDE_DIRS       Extra directory patterns to skip (comma-separated)
+  SEARCHIFY_EXCLUDE_FILES      Extra file name patterns to skip (comma-separated)
   SEARCHIFY_WATCH_DEBOUNCE     Watch debounce duration (default 1s)
   SEARCHIFY_WATCH_RESCAN       Optional periodic rescan (e.g. 5m; empty=off)
   SEARCHIFY_OCR                Enable OCR for images / scanned PDFs (1/true/on)

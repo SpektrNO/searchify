@@ -32,6 +32,10 @@ func collectIndexablePaths(cfg *config.Config, reg *extract.Registry, roots []st
 		}
 
 		if !info.IsDir() {
+			if cfg.SkipFile(allowed) {
+				messages = append(messages, filepath.Clean(allowed)+": skipped (SEARCHIFY_EXCLUDE_FILES)")
+				continue
+			}
 			if reg.HasExtension(allowed) {
 				if info.Size() > maxBytes {
 					messages = append(messages, filepath.Clean(allowed)+": skipped (file larger than "+formatByteLimit(maxBytes)+")")
@@ -53,7 +57,7 @@ func collectIndexablePaths(cfg *config.Config, reg *extract.Registry, roots []st
 				}
 				return nil
 			}
-			if !reg.HasExtension(path) {
+			if cfg.SkipFile(path) || !reg.HasExtension(path) {
 				return nil
 			}
 			stat, err := d.Info()

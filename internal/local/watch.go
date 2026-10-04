@@ -132,7 +132,7 @@ func (w *IndexWatcher) handleEvent(watcher *fsnotify.Watcher, ev fsnotify.Event)
 	if !w.cfg.UnderAnyRoot(path) {
 		return
 	}
-	if w.cfg.PathHasSkipDir(path) {
+	if w.cfg.PathHasSkipDir(path) || w.cfg.SkipFile(path) {
 		return
 	}
 

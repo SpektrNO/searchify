@@ -21,6 +21,7 @@ const (
 	EnvPathBase        = "SEARCHIFY_PATH_BASE"
 	EnvWatchPaths      = "SEARCHIFY_WATCH_PATHS"
 	EnvExcludeDirs     = "SEARCHIFY_EXCLUDE_DIRS"
+	EnvExcludeFiles    = "SEARCHIFY_EXCLUDE_FILES"
 	EnvWatchDebounce   = "SEARCHIFY_WATCH_DEBOUNCE"
 	EnvWatchRescan     = "SEARCHIFY_WATCH_RESCAN"
 	EnvOCR             = "SEARCHIFY_OCR"
@@ -76,6 +77,7 @@ type Config struct {
 	PathBase         string      // optional; relative paths tried here first
 	WatchPaths       []string      // optional; empty disables auto-index watch
 	ExcludeDirs      []string      // extra directory names or patterns skipped in a walk
+	ExcludeFiles     []string      // extra file-name patterns skipped in a walk
 	WatchDebounce    time.Duration // coalesce fs events (default 1s)
 	WatchRescan      time.Duration // optional periodic IndexPaths; 0 disables
 	OCREnabled       bool
@@ -151,6 +153,10 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	excludeDirs, err := parseExcludeDirs(os.Getenv(EnvExcludeDirs))
+	if err != nil {
+		return nil, err
+	}
+	excludeFiles, err := parseExcludeFiles(os.Getenv(EnvExcludeFiles))
 	if err != nil {
 		return nil, err
 	}
@@ -234,6 +240,7 @@ func Load() (*Config, error) {
 		PathBase:         pathBase,
 		WatchPaths:       watchPaths,
 		ExcludeDirs:      excludeDirs,
+		ExcludeFiles:     excludeFiles,
 		WatchDebounce:    debounce,
 		WatchRescan:      rescan,
 		OCREnabled:       parseBoolEnv(os.Getenv(EnvOCR)),
