@@ -1,6 +1,7 @@
 package local
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -189,10 +190,27 @@ func (s *Service) SpawnEmbedFile(path string) error {
 		return fmt.Errorf("resolve executable: %w", err)
 	}
 	cmd := exec.Command(exe, "embed", "--file", path)
+	return runEmbedCommand(cmd)
+}
+
+func runEmbedCommand(cmd *exec.Cmd) (err error) {
+	tmpDir, err := os.MkdirTemp("", "searchify-embed-*")
+	if err != nil {
+		return fmt.Errorf("create embed worker temp directory: %w", err)
+	}
+	defer func() {
+		if cleanupErr := os.RemoveAll(tmpDir); cleanupErr != nil {
+			err = errors.Join(err, fmt.Errorf("clean embed worker temp directory %q: %w", tmpDir, cleanupErr))
+		}
+	}()
+
 	// Override (do not append): Unix getenv returns the first matching key.
 	cmd.Env = environWith(map[string]string{
 		"SEARCHIFY_EMBED_BACKEND": "onnx",
 		"SEARCHIFY_SKIP_EMBED":    "0",
+		"TMPDIR":                  tmpDir,
+		"TMP":                     tmpDir,
+		"TEMP":                    tmpDir,
 	})
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr

@@ -22,6 +22,7 @@ type IndexProgress struct {
 	Total   int    // total indexable files discovered
 	Path    string // current file (empty for scan summary)
 	Status  string // "scan" | "start" | "skip" | "indexed" | "updated" | "error" | "empty"
+	Error   string // failure detail when Status is "error"
 }
 
 // IndexPathsOptions configures IndexPathsOpts.
@@ -55,7 +56,7 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 		if err != nil {
 			report.Errors++
 			report.addMessage(err.Error())
-			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error"})
+			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error", Error: err.Error()})
 			continue
 		}
 
@@ -63,7 +64,7 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 		if err != nil {
 			report.Errors++
 			report.addMessage(err.Error())
-			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error"})
+			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error", Error: err.Error()})
 			continue
 		}
 
@@ -90,7 +91,7 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 			}
 			report.Errors++
 			report.addMessage(fmt.Sprintf("%s: %v", path, err))
-			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error"})
+			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error", Error: err.Error()})
 			continue
 		}
 		if utf8.RuneCountInString(strings.TrimSpace(text)) == 0 {
@@ -115,7 +116,7 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 		if err != nil {
 			report.Errors++
 			report.addMessage(fmt.Sprintf("%s: %v", path, err))
-			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error"})
+			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error", Error: err.Error()})
 			continue
 		}
 

@@ -219,10 +219,14 @@ Typical flow:
 
 CLI `index` prints progress on **stderr** (`[i/N] indexing …`) so long catalogues are distinguishable from a hang; the final `indexed=` line is on stdout.
 
+Individual file failures do not stop `index` or make it exit with a nonzero status: indexing continues with the next file. Each failure is printed immediately on stderr with its path and reason, even when the final warning list reaches its limit. The summary's `errors=` count records failed files separately from `skipped=` (unchanged files). Configuration, startup, and operation-level failures still exit nonzero. `embed` also continues past individual file errors but retains its nonzero exit status so embedding-worker failures propagate to the parent indexer.
+
 **Large corpora / Windows OOM:** two separate risks:
 
 1. **ONNX embeds** — use `--skip-embed` for FTS first; vectors later via `searchify embed` / `SEARCHIFY_EMBED_BACKEND=process`.
 2. **PDF/Office parsers** — by default index runs them in a **short-lived `searchify extract` worker** so parent RAM does not ratchet. PDF text prefers **`pdftotext`** ([Install Poppler](#install-poppler)). Pathological PDFs time out and are **skipped** so indexing continues. (Set `SEARCHIFY_EXTRACT_INPROCESS=1` only for debugging.)
+
+With `SEARCHIFY_EMBED_BACKEND=process` (the default), each per-file embedding worker gets a private temporary directory. Searchify removes it, including Kjarni's extracted native library, after the worker exits, even on failure. The directory is created under the system temp location (`TMPDIR` on Unix; `TMP`/`TEMP` on Windows). This does not clean up old `kjarni-*` directories, cover in-process embedding (`backend=onnx` or standalone `searchify embed`), or guarantee cleanup if the parent process is forcibly terminated.
 
 ```bash
 # Full vault, keyword-only, PDF/Office via extract workers (recommended first pass)

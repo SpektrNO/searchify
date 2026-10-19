@@ -9,6 +9,7 @@ coverage.html
 .idea/
 .vscode/
 *.swp
+**/obj/
 
 # Secrets and local env (keep .env.example committed)
 .env

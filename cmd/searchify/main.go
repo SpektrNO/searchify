@@ -207,7 +207,7 @@ func runIndex(args []string) {
 			case "empty":
 				fmt.Fprintf(os.Stderr, "[%d/%d] empty %s\n", p.Current, p.Total, p.Path)
 			case "error":
-				fmt.Fprintf(os.Stderr, "[%d/%d] error %s (heap≈%d MiB)\n", p.Current, p.Total, p.Path, heapMiB)
+				fmt.Fprintf(os.Stderr, "[%d/%d] error (skipping file) %s: %s (heap≈%d MiB)\n", p.Current, p.Total, p.Path, p.Error, heapMiB)
 			}
 		},
 	})
@@ -223,7 +223,7 @@ func runIndex(args []string) {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", msg)
 	}
 	if report.Errors > 0 {
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "index: completed with %d file error(s); see error lines above. Failed files may need indexing or embedding retried.\n", report.Errors)
 	}
 }
 
