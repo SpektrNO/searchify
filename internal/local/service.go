@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -24,6 +25,7 @@ type Service struct {
 	cfg                 *config.Config
 	db                  *sql.DB
 	extract             *extract.Registry
+	indexGate           chan struct{}
 	embedMu             sync.Mutex
 	embedder            Embedder
 	embedErr            error
@@ -57,8 +59,9 @@ func NewService(cfg *config.Config) (*Service, error) {
 	}
 
 	svc := &Service{
-		cfg: cfg,
-		db:  db,
+		cfg:       cfg,
+		db:        db,
+		indexGate: make(chan struct{}, 1),
 		extract: extract.NewRegistry(extract.Options{
 			OCREnabled: cfg.OCREnabled,
 			OCRLang:    cfg.OCRLang,
@@ -364,7 +367,7 @@ func (s *Service) deleteFileChunks(path string) error {
 	return err
 }
 
-func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (string, error) {
+func (s *Service) indexFile(ctx context.Context, path string, info os.FileInfo, content []byte) (string, error) {
 	params := ChunkParams{
 		TargetBytes:  s.cfg.ChunkBytes,
 		OverlapBytes: s.cfg.ChunkOverlap,
@@ -488,7 +491,7 @@ func (s *Service) indexFile(path string, info os.FileInfo, content []byte) (stri
 
 	switch {
 	case s.cfg.UseProcessEmbed():
-		if err := s.runEmbedWorker(path); err != nil {
+		if err := s.runEmbedWorker(ctx, path); err != nil {
 			return warn, err
 		}
 	case s.cfg.UseInProcessEmbed():
@@ -541,11 +544,11 @@ func nullIfEmpty(s string) any {
 	return s
 }
 
-func (s *Service) runEmbedWorker(path string) error {
+func (s *Service) runEmbedWorker(ctx context.Context, path string) error {
 	if s.spawnEmbedForTest != nil {
 		return s.spawnEmbedForTest(path)
 	}
-	return s.SpawnEmbedFile(path)
+	return s.spawnEmbedFile(ctx, path)
 }
 
 func (s *Service) embedAndStore(chunkIDs, texts []string) error {

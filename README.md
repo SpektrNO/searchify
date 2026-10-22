@@ -391,7 +391,18 @@ CLI: `searchify prune [--dry-run] [paths...]`
 
 ### Auto-index watch
 
-**Off by default.** Set `SEARCHIFY_WATCH_PATHS` (comma-separated, under roots) to enable fsnotify-based indexing while `mcp stdio` or `serve http` runs. Writes debounce (`SEARCHIFY_WATCH_DEBOUNCE`, default `1s`); deletes call `remove_paths`. Optional `SEARCHIFY_WATCH_RESCAN` (e.g. `5m`) periodically re-indexes watch roots — recommended for OneDrive / cloud-synced folders where file events are unreliable. `index_status` reports `watch_enabled` / `watch_paths`. See [Indexing lifecycle](#indexing-lifecycle).
+**Off by default.** Set `SEARCHIFY_WATCH_PATHS` (comma-separated, under roots) to enable fsnotify-based indexing while `mcp stdio` or `serve http` runs. `index_status` reports `watch_enabled` / `watch_paths`. See [Indexing lifecycle](#indexing-lifecycle).
+
+Large clones and bulk imports continue automatically, with bounded background work:
+
+- Events are triaged for watch scope, excluded directories/files, supported extensions, and file size before extraction. Writes debounce per path (`SEARCHIFY_WATCH_DEBOUNCE`, default `1s`).
+- One worker consumes at most **1,024 pending paths**, deduplicating repeated events. There is no timer or indexing goroutine per file. Indexing and embedding requests on the same service also run one at a time.
+- Queue overflow and fsnotify event overflow schedule a coalesced recovery scan instead of silently dropping changes. New or moved-in populated directories are recursively watched and indexed by the worker.
+- Startup performs a recovery scan. Recovery scans reconcile missing indexed files as well as additions/updates. Optional `SEARCHIFY_WATCH_RESCAN` (e.g. `5m`) repeats this periodically; recommended for OneDrive / cloud-synced folders where events can be missing without an overflow notification.
+- Directory discovery reads batches of 128 entries and streams file paths rather than retaining the entire tree. An initial counting pass preserves CLI progress totals; totals can change if files arrive during indexing. Diagnostic messages are capped at 20.
+- Shutdown cancels queued work and waits for the worker before closing the database; it does not flush a large backlog. The in-memory queue is not durable; the next startup recovery scan discovers unfinished work.
+
+These bounds limit concurrent ingestion, not the memory of a single parser/model or other Searchify processes. Keep the existing extraction/chunk limits; use `SEARCHIFY_SKIP_EMBED=1` or `SEARCHIFY_EMBED_BACKEND=none` for keyword-only indexing on low-memory machines.
 
 ### `search_local`
 

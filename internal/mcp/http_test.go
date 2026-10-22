@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -30,6 +31,34 @@ func testServer(t *testing.T, token string) *Server {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	return s
+}
+
+func TestIndexEndpointsHonorCancellation(t *testing.T) {
+	s := testServer(t, "secret")
+	path := filepath.Join(s.cfg.Roots[0], "cancel.md")
+	if err := os.WriteFile(path, []byte("cancelled contents\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	result, _, err := s.indexPaths(ctx, nil, indexPathsInput{Paths: []string{path}})
+	if err != nil || result == nil || !result.IsError {
+		t.Fatalf("cancelled MCP request: result=%+v err=%v", result, err)
+	}
+	body, err := json.Marshal(restIndexRequest{Paths: []string{path}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/v1/index", bytes.NewReader(body)).WithContext(ctx)
+	response := httptest.NewRecorder()
+	s.handleV1Index(response, req)
+	if response.Code != http.StatusInternalServerError || !strings.Contains(response.Body.String(), "context canceled") {
+		t.Fatalf("cancelled REST request: status=%d body=%s", response.Code, response.Body.String())
+	}
+	n, err := s.local.DocumentCount()
+	if err != nil || n != 0 {
+		t.Fatalf("cancelled API work persisted: count=%d err=%v", n, err)
+	}
 }
 
 func TestHandlerRequiresToken(t *testing.T) {

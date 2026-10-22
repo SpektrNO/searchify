@@ -303,7 +303,13 @@ func TestProcessEmbedBackendSpawnsWorker(t *testing.T) {
 	var spawned string
 	svc.spawnEmbedForTest = func(p string) error {
 		spawned = p
-		_, err := svc.EmbedFiles([]string{p}, EmbedOptions{})
+		worker, err := NewService(cfg)
+		if err != nil {
+			return err
+		}
+		defer worker.Close()
+		worker.embedForTest = &stubEmbedder{}
+		_, err = worker.EmbedFiles([]string{p}, EmbedOptions{})
 		return err
 	}
 
@@ -513,4 +519,3 @@ func TestSearchPDFPageNumber(t *testing.T) {
 		t.Fatalf("page=%d want 2", out2.Results[0].Page)
 	}
 }
-

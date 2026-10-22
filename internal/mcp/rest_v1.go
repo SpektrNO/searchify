@@ -82,7 +82,7 @@ func (s *Server) handleV1Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	report, err := s.local.IndexPaths(req.Paths, req.Force)
+	report, err := s.local.IndexPathsOpts(req.Paths, local.IndexPathsOptions{Context: r.Context(), Force: req.Force})
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "index failed: "+err.Error())
 		return

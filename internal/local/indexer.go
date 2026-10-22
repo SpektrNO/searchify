@@ -18,8 +18,8 @@ const maxIndexMessages = 20
 
 // IndexProgress reports live progress during IndexPaths (CLI / operators).
 type IndexProgress struct {
-	Current int    // 1-based file index in the walk list
-	Total   int    // total indexable files discovered
+	Current int    // 1-based file index in the streaming walk
+	Total   int    // indexable files in the initial count pass; disk changes can alter this
 	Path    string // current file (empty for scan summary)
 	Status  string // "scan" | "start" | "skip" | "indexed" | "updated" | "error" | "empty"
 	Error   string // failure detail when Status is "error"
@@ -27,6 +27,7 @@ type IndexProgress struct {
 
 // IndexPathsOptions configures IndexPathsOpts.
 type IndexPathsOptions struct {
+	Context  context.Context // optional; cancels discovery, queued work, and extraction
 	Force    bool
 	Progress func(IndexProgress) // optional; called on stderr-friendly milestones
 }
@@ -39,10 +40,24 @@ func (s *Service) IndexPaths(paths []string, force bool) (IndexReport, error) {
 // IndexPathsOpts is IndexPaths with optional progress reporting.
 func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexReport, error) {
 	report := IndexReport{}
-	files, walkMessages := collectIndexablePaths(s.cfg, s.extract, paths)
-	report.Messages = append(report.Messages, walkMessages...)
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	select {
+	case s.indexGate <- struct{}{}:
+		defer func() { <-s.indexGate }()
+	case <-ctx.Done():
+		return report, ctx.Err()
+	}
 
-	total := len(files)
+	total := 0
+	for range indexablePaths(ctx, s.cfg, s.extract, paths, report.addMessage) {
+		total++
+	}
+	if err := ctx.Err(); err != nil {
+		return report, err
+	}
 	s.emitProgress(opts.Progress, IndexProgress{Total: total, Status: "scan"})
 
 	timeout := s.cfg.ExtractTimeout
@@ -50,13 +65,23 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 		timeout = 30 * time.Second
 	}
 
-	for i, path := range files {
-		n := i + 1
+	n := 0
+	for path := range indexablePaths(ctx, s.cfg, s.extract, paths, report.addMessage) {
+		if err := ctx.Err(); err != nil {
+			return report, err
+		}
+		n++
 		info, err := os.Stat(path)
 		if err != nil {
 			report.Errors++
 			report.addMessage(err.Error())
 			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error", Error: err.Error()})
+			continue
+		}
+		if !info.Mode().IsRegular() || info.Size() > maxIndexFileBytes(s.cfg) {
+			report.Skipped++
+			report.addMessage(fmt.Sprintf("%s: skipped (not a regular file or larger than %s)", path, formatByteLimit(maxIndexFileBytes(s.cfg))))
+			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "skip"})
 			continue
 		}
 
@@ -76,9 +101,12 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 
 		s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "start"})
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		text, warn, err := s.extractFile(ctx, path, info.Size())
+		extractCtx, cancel := context.WithTimeout(ctx, timeout)
+		text, warn, err := s.extractFile(extractCtx, path, info.Size())
 		cancel()
+		if ctx.Err() != nil {
+			return report, ctx.Err()
+		}
 		for _, w := range warn {
 			report.addMessage(fmt.Sprintf("%s: %s", path, w))
 		}
@@ -109,11 +137,18 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 			text = text[:maxExtract]
 		}
 
-		warnMsg, err := s.indexFile(path, info, []byte(text))
+		warnMsg, err := s.indexFile(ctx, path, info, []byte(text))
 		if warnMsg != "" {
 			report.addMessage(fmt.Sprintf("%s: %s", path, warnMsg))
 		}
 		if err != nil {
+			if ctx.Err() != nil {
+				// Do not leave an unchanged file record masking interrupted embedding.
+				if cleanupErr := s.removeIndexedFile(path); cleanupErr != nil {
+					return report, errors.Join(ctx.Err(), fmt.Errorf("remove interrupted index for %s: %w", path, cleanupErr))
+				}
+				return report, ctx.Err()
+			}
 			report.Errors++
 			report.addMessage(fmt.Sprintf("%s: %v", path, err))
 			s.emitProgress(opts.Progress, IndexProgress{Current: n, Total: total, Path: path, Status: "error", Error: err.Error()})
@@ -135,6 +170,9 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 		}
 		runtime.GC()
 		debug.FreeOSMemory()
+	}
+	if err := ctx.Err(); err != nil {
+		return report, err
 	}
 
 	if report.Indexed > 0 || report.Updated > 0 {

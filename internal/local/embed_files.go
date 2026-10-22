@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -38,6 +39,8 @@ type EmbedOptions struct {
 // EmbedFiles writes chunk_vectors for indexed files (in-process ONNX).
 // Prefer invoking via CLI `searchify embed` so the process can exit and free native RSS.
 func (s *Service) EmbedFiles(paths []string, opts EmbedOptions) (EmbedReport, error) {
+	s.indexGate <- struct{}{}
+	defer func() { <-s.indexGate }()
 	report := EmbedReport{}
 	cleared, err := s.reconcileEmbedModelForWrite()
 	if err != nil {
@@ -185,11 +188,15 @@ func (s *Service) embedFileChunks(path string, force bool) (int, error) {
 
 // SpawnEmbedFile runs a short-lived `searchify embed --file` child (ONNX in child only).
 func (s *Service) SpawnEmbedFile(path string) error {
+	return s.spawnEmbedFile(context.Background(), path)
+}
+
+func (s *Service) spawnEmbedFile(ctx context.Context, path string) error {
 	exe, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("resolve executable: %w", err)
 	}
-	cmd := exec.Command(exe, "embed", "--file", path)
+	cmd := exec.CommandContext(ctx, exe, "embed", "--file", path)
 	return runEmbedCommand(cmd)
 }
 

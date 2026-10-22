@@ -22,6 +22,7 @@ type Server struct {
 	web         *web.Client
 	mcp         *mcp.Server
 	watchCancel context.CancelFunc
+	watchDone   chan struct{}
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
@@ -56,7 +57,9 @@ func (s *Server) startWatch() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	s.watchCancel = cancel
+	s.watchDone = make(chan struct{})
 	go func() {
+		defer close(s.watchDone)
 		if err := w.Run(ctx); err != nil && err != context.Canceled {
 			slog.Warn("index watch exited", "err", err)
 		}
@@ -74,6 +77,7 @@ func (s *Server) Local() *local.Service {
 func (s *Server) Close() error {
 	if s.watchCancel != nil {
 		s.watchCancel()
+		<-s.watchDone
 		s.watchCancel = nil
 	}
 	if s.local == nil {

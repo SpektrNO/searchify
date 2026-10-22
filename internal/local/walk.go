@@ -1,83 +1,132 @@
 package local
 
 import (
+	"context"
 	"fmt"
-	"io/fs"
+	"io"
+	"iter"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spektr/searchify/internal/config"
 	"github.com/spektr/searchify/internal/extract"
 )
 
-func collectIndexablePaths(cfg *config.Config, reg *extract.Registry, roots []string) ([]string, []string) {
-	var files []string
-	var messages []string
-	maxBytes := cfg.MaxFileBytes
-	if maxBytes <= 0 {
-		maxBytes = 32 * 1024 * 1024
+const directoryBatchSize = 128
+
+// walkDirectories does not sort or retain a whole directory's entries.
+func walkDirectories(ctx context.Context, root string, visit func(string, os.DirEntry) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-
-	for _, root := range roots {
-		allowed, err := cfg.AllowedPath(root)
-		if err != nil {
-			messages = append(messages, err.Error())
-			continue
+	dir, err := os.Open(root)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	for {
+		entries, readErr := dir.ReadDir(directoryBatchSize)
+		for _, entry := range entries {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := visit(filepath.Join(root, entry.Name()), entry); err != nil {
+				return err
+			}
 		}
-
-		info, err := os.Stat(allowed)
-		if err != nil {
-			messages = append(messages, err.Error())
-			continue
+		if readErr == io.EOF {
+			return nil
 		}
+		if readErr != nil {
+			return readErr
+		}
+	}
+}
 
-		if !info.IsDir() {
-			if cfg.SkipFile(allowed) {
-				messages = append(messages, filepath.Clean(allowed)+": skipped (SEARCHIFY_EXCLUDE_FILES)")
+func indexablePaths(ctx context.Context, cfg *config.Config, reg *extract.Registry, roots []string, message func(string)) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		maxBytes := maxIndexFileBytes(cfg)
+		visitFile := func(path string, info os.FileInfo) bool {
+			if !info.Mode().IsRegular() || cfg.PathHasSkipDir(path) {
+				return true
+			}
+			if cfg.SkipFile(path) {
+				message(path + ": skipped (SEARCHIFY_EXCLUDE_FILES)")
+				return true
+			}
+			if !reg.HasExtension(path) {
+				return true
+			}
+			if info.Size() > maxBytes {
+				message(path + ": skipped (file larger than " + formatByteLimit(maxBytes) + ")")
+				return true
+			}
+			return yield(path)
+		}
+		stopped := false
+		var walk func(string)
+		walk = func(dir string) {
+			err := walkDirectories(ctx, dir, func(path string, d os.DirEntry) error {
+				if stopped {
+					return context.Canceled
+				}
+				if d.IsDir() {
+					if !cfg.SkipPath(path) {
+						walk(path)
+					}
+					return nil
+				}
+				if cfg.SkipFile(path) || !reg.HasExtension(path) || !d.Type().IsRegular() {
+					return nil
+				}
+				info, err := d.Info()
+				if err != nil {
+					message(err.Error())
+				} else if !visitFile(path, info) {
+					stopped = true
+					return context.Canceled
+				}
+				return nil
+			})
+			if err != nil && !stopped && ctx.Err() == nil {
+				message(err.Error())
+			}
+		}
+		for _, root := range roots {
+			if stopped || ctx.Err() != nil {
+				return
+			}
+			allowed, err := cfg.AllowedPath(root)
+			if err != nil {
+				message(err.Error())
 				continue
 			}
-			if reg.HasExtension(allowed) {
-				if info.Size() > maxBytes {
-					messages = append(messages, filepath.Clean(allowed)+": skipped (file larger than "+formatByteLimit(maxBytes)+")")
-				} else {
-					files = append(files, filepath.Clean(allowed))
-				}
-			}
-			continue
-		}
-
-		err = filepath.WalkDir(allowed, func(path string, d fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				messages = append(messages, walkErr.Error())
-				return nil
-			}
-			if d.IsDir() {
-				if path != allowed && cfg.SkipPath(path) {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if cfg.SkipFile(path) || !reg.HasExtension(path) {
-				return nil
-			}
-			stat, err := d.Info()
+			info, err := os.Stat(allowed)
 			if err != nil {
-				messages = append(messages, err.Error())
-				return nil
+				message(err.Error())
+				continue
 			}
-			if stat.Size() > maxBytes {
-				messages = append(messages, filepath.Clean(path)+": skipped (file larger than "+formatByteLimit(maxBytes)+")")
-				return nil
+			if info.IsDir() {
+				if !cfg.SkipPath(allowed) {
+					walk(allowed)
+				}
+			} else if !visitFile(allowed, info) {
+				return
 			}
-			files = append(files, filepath.Clean(path))
-			return nil
-		})
-		if err != nil {
-			messages = append(messages, err.Error())
 		}
 	}
+}
 
-	return files, messages
+func pathWithin(path, root string) bool {
+	return path == root || strings.HasPrefix(path, strings.TrimSuffix(root, string(filepath.Separator))+string(filepath.Separator))
+}
+
+func maxIndexFileBytes(cfg *config.Config) int64 {
+	if cfg.MaxFileBytes > 0 {
+		return cfg.MaxFileBytes
+	}
+	return 32 * 1024 * 1024
 }
 
 func formatByteLimit(n int64) string {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/spektr/searchify/internal/local"
 )
 
 type indexPathsInput struct {
@@ -22,7 +23,6 @@ type indexPathsOutput struct {
 }
 
 func (s *Server) indexPaths(ctx context.Context, req *mcp.CallToolRequest, input indexPathsInput) (*mcp.CallToolResult, indexPathsOutput, error) {
-	_ = ctx
 	_ = req
 	start := time.Now()
 
@@ -30,7 +30,7 @@ func (s *Server) indexPaths(ctx context.Context, req *mcp.CallToolRequest, input
 		return toolErrorResult("paths is required"), indexPathsOutput{DurationMs: elapsedMs(start)}, nil
 	}
 
-	report, err := s.local.IndexPaths(input.Paths, input.Force)
+	report, err := s.local.IndexPathsOpts(input.Paths, local.IndexPathsOptions{Context: ctx, Force: input.Force})
 	if err != nil {
 		return toolErrorResult("index failed: %v", err), indexPathsOutput{DurationMs: elapsedMs(start)}, nil
 	}
