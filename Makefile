@@ -42,6 +42,23 @@ run-http: build
 	addr="$${SEARCHIFY_HTTP_ADDR:-127.0.0.1:8080}"; \
 	./bin/searchify serve http --addr "$$addr"
 
+# Index every file under SEARCHIFY_ROOTS. Can run beside `make run-http`.
+index: build
+	@set -a; \
+	[ -f .env ] && . ./.env; \
+	set +a; \
+	if [ -z "$${SEARCHIFY_ROOTS}" ]; then \
+		echo 'error: SEARCHIFY_ROOTS is required. Set it in .env or the environment.' >&2; \
+		exit 1; \
+	fi; \
+	old_ifs=$$IFS; \
+	IFS=','; \
+	set -f; \
+	set -- $$SEARCHIFY_ROOTS; \
+	set +f; \
+	IFS=$$old_ifs; \
+	./bin/searchify index "$$@"
+
 # Re-index every file under SEARCHIFY_ROOTS. Can run beside `make run-http`.
 index-force: build
 	@set -a; \

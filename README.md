@@ -420,6 +420,10 @@ Search the persisted index. Default mode is `hybrid` when vectors exist, otherwi
 
 Modes: `keyword` (FTS5 BM25), `vector` (cosine similarity), `hybrid` (RRF fusion). Set `rerank: true` to reorder results with LangSearch (requires `LANGSEARCH_API_KEY`). Optional `snippet_max` overrides `SEARCHIFY_SNIPPET_CHARS` (default 300, hard max 8000).
 
+**Query semantics:** keyword splits on spaces and requires **every** token in the **same chunk** (`AND`). There is no boolean `OR` in the query string today (`OR` is searched as text). Vector embeds the whole query and ranks by similarity (terms need not all appear). Prefer **`mode: "hybrid"`** when `index_status` reports `vector_ready: true`; use **`keyword`** while vectors are incomplete. For alternate names that need not co-occur, run separate keyword searches and merge paths (optional backlog `opt-term-op` would add an explicit `term_op`).
+
+Call `index_status` to check readiness: `vector_ready` is true when `vector_chunk_count == chunk_count` and chunks exist. Backfill missing vectors with `searchify embed` (or `embed --force` / re-index after a model change).
+
 PDF / PPTX / ODP hits (form-feed page or slide breaks at extract time) include `page` (1-based) and title like `doc.pdf:p.3` or `deck.pptx:p.2`. Python code hits may include `symbol` / `symbol_kind` and title `mod.py:Class.method` when analyzed. Other files keep `line` / `name.md:42`. Re-index after upgrading so `chunk_pages` / symbol tables populate.
 
 Responses include `duration_ms` (wall clock). `search_local` also returns a `timing` breakdown (`keyword_ms` / `vector_ms` / `rrf_ms` / `rerank_ms`) for the legs that ran.
