@@ -112,7 +112,7 @@ flowchart TB
 
 ### Path allow-set (constrained retrieve)
 
-Planned: [`opt-search-path-allowset`](./feature-backlog.md). Groundline (and similar ACL-owning clients) resolve **who** the caller is and **what** they may see. Searchify only **ranks inside that allow-set**. Searchify must not implement identity or ACL policy (no users, roles, AD, JWTs, tenant model, or Groundline auth integration).
+Shipped: [`opt-search-path-allowset`](./feature-backlog.md). Groundline (and similar ACL-owning clients) resolve **who** the caller is and **what** they may see. Searchify only **ranks inside that allow-set**. Searchify must not implement identity or ACL policy (no users, roles, AD, JWTs, tenant model, or Groundline auth integration).
 
 **Why:** if Searchify returns a global top-`limit` and the client filters afterward, allowed documents that ranked just outside `k` are dropped → result starvation (empty/weak evidence even when readable matches exist).
 

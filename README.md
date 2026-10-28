@@ -186,6 +186,12 @@ curl -sS -X POST http://127.0.0.1:8080/v1/search \
   -H "Content-Type: application/json" \
   -d '{"query":"path allowlist","mode":"hybrid","limit":10,"snippet_max":1200}'
 
+# Constrained retrieve (rank inside path allow-set before top-k / RRF)
+curl -sS -X POST http://127.0.0.1:8080/v1/search \
+  -H "Authorization: Bearer dev-secret" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"path allowlist","mode":"hybrid","limit":10,"path_prefixes":["/abs/path/to/docs/team-a"]}'
+
 # List indexed file paths (optional ?prefix=)
 curl -sS "http://127.0.0.1:8080/v1/files" \
   -H "Authorization: Bearer dev-secret"
@@ -197,7 +203,7 @@ curl -sS "http://127.0.0.1:8080/v1/stats" \
 
 | Method | Path | Body / query |
 |--------|------|------|
-| `POST` | `/v1/search` | `query`, optional `limit`, `mode`, `rerank`, `snippet_max` |
+| `POST` | `/v1/search` | `query`, optional `limit`, `mode`, `rerank`, `snippet_max`, `path_prefixes`, `paths` |
 | `POST` | `/v1/index` | `paths`, optional `force` |
 | `GET` | `/v1/files` | optional `prefix` query (exact path or directory prefix) |
 | `GET` | `/v1/stats` | — (`file_count`, `folder_count`, `vector_chunk_count`, `total_bytes`, `last_index_change`) |
@@ -414,13 +420,16 @@ Search the persisted index. Default mode is `hybrid` when vectors exist, otherwi
   "mode": "hybrid",
   "limit": 10,
   "rerank": false,
-  "snippet_max": 1200
+  "snippet_max": 1200,
+  "path_prefixes": ["/abs/path/to/docs/team-a"]
 }
 ```
 
 Modes: `keyword` (FTS5 BM25), `vector` (cosine similarity), `hybrid` (RRF fusion). Set `rerank: true` to reorder results with LangSearch (requires `LANGSEARCH_API_KEY`). Optional `snippet_max` overrides `SEARCHIFY_SNIPPET_CHARS` (default 300, hard max 8000).
 
-**Query semantics:** keyword splits on spaces and requires **every** token in the **same chunk** (`AND`). There is no boolean `OR` in the query string today (`OR` is searched as text). Vector embeds the whole query and ranks by similarity (terms need not all appear). Prefer **`mode: "hybrid"`** when `index_status` reports `vector_ready: true`; use **`keyword`** while vectors are incomplete. For alternate names that need not co-occur, run separate keyword searches and merge paths (optional backlog `opt-term-op` would add an explicit `term_op`).
+**Path allow-set (constrained retrieve):** optional `path_prefixes` / `paths` (same on `POST /v1/search`). Ranking runs **inside** the allow-set before top-`limit` / RRF (no post-filter starvation). Match if the hit path equals or is under any prefix **or** is listed in `paths` (OR; path-segment prefixes). Omit both fields for unscoped search. If either field is present and the allow-set is empty → `results: []` (does not broaden). Paths must stay under `SEARCHIFY_ROOTS` (invalid → error / HTTP 400). Searchify does not implement identity or ACL policy — the caller supplies the allow-set.
+
+**Query semantics:** keyword splits on spaces and requires **every** token in the **same chunk** (`AND`). There is no boolean `OR` in the query string today (`OR` is searched as text). Vector embeds the whole query and ranks by similarity (terms need not all appear). Prefer **`mode: "hybrid"`** when `index_status` reports `vector_ready: true`; use **`keyword`** while vectors are incomplete. For alternate names that need not co-occur, run separate keyword searches and merge paths. Optional backlog: `opt-term-op` (FTS5 phrases + `term_op`), `opt-search-file-phrase` (contiguous `"..."` on `search_file` lines).
 
 Call `index_status` to check readiness: `vector_ready` is true when `vector_chunk_count == chunk_count` and chunks exist. Backfill missing vectors with `searchify embed` (or `embed --force` / re-index after a model change).
 
