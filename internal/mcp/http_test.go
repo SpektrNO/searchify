@@ -274,6 +274,84 @@ func TestRESTSearchAndIndex(t *testing.T) {
 	}
 }
 
+func TestRESTSearchPathAllowset(t *testing.T) {
+	s := testServer(t, "secret")
+	s.Local().SetEmbedderForTest(restStubEmbedder{})
+
+	root := s.cfg.Roots[0]
+	allowedDir := filepath.Join(root, "allowed")
+	otherDir := filepath.Join(root, "other")
+	if err := os.MkdirAll(allowedDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(otherDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	allowedDoc := filepath.Join(allowedDir, "in.md")
+	outsideDoc := filepath.Join(otherDir, "out.md")
+	if err := os.WriteFile(allowedDoc, []byte("REST_ALLOW_TOKEN in\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(outsideDoc, []byte(strings.Repeat("REST_ALLOW_TOKEN ", 25)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	h, err := s.Handler(HTTPOptions{Path: "/mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	indexBody := fmt.Sprintf(`{"paths":[%q],"force":false}`, root)
+	indexResp := restPOST(t, srv.URL+"/v1/index", "secret", indexBody)
+	defer indexResp.Body.Close()
+	if indexResp.StatusCode != http.StatusOK {
+		t.Fatalf("index status %d", indexResp.StatusCode)
+	}
+
+	// Empty allow-set → 200 + []
+	emptyBody := `{"query":"REST_ALLOW_TOKEN","mode":"keyword","path_prefixes":[]}`
+	emptyResp := restPOST(t, srv.URL+"/v1/search", "secret", emptyBody)
+	defer emptyResp.Body.Close()
+	if emptyResp.StatusCode != http.StatusOK {
+		t.Fatalf("empty allow status %d", emptyResp.StatusCode)
+	}
+	var emptyOut searchLocalOutput
+	if err := json.NewDecoder(emptyResp.Body).Decode(&emptyOut); err != nil {
+		t.Fatal(err)
+	}
+	if emptyOut.Count != 0 || len(emptyOut.Results) != 0 {
+		t.Fatalf("expected empty results, got %+v", emptyOut)
+	}
+
+	// Constrained to allowed prefix
+	searchBody := fmt.Sprintf(
+		`{"query":"REST_ALLOW_TOKEN","mode":"keyword","limit":5,"path_prefixes":[%q]}`,
+		allowedDir,
+	)
+	searchResp := restPOST(t, srv.URL+"/v1/search", "secret", searchBody)
+	defer searchResp.Body.Close()
+	if searchResp.StatusCode != http.StatusOK {
+		t.Fatalf("search status %d", searchResp.StatusCode)
+	}
+	var searchOut searchLocalOutput
+	if err := json.NewDecoder(searchResp.Body).Decode(&searchOut); err != nil {
+		t.Fatal(err)
+	}
+	if searchOut.Count != 1 || len(searchOut.Results) != 1 || searchOut.Results[0].Path != allowedDoc {
+		t.Fatalf("unexpected constrained search: %+v", searchOut)
+	}
+
+	// Out of root → 400
+	badBody := `{"query":"REST_ALLOW_TOKEN","mode":"keyword","path_prefixes":["/tmp/not-a-searchify-root"]}`
+	badResp := restPOST(t, srv.URL+"/v1/search", "secret", badBody)
+	defer badResp.Body.Close()
+	if badResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 out-of-root, got %d", badResp.StatusCode)
+	}
+}
+
 func restPOST(t *testing.T, url, token, body string) *http.Response {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(body))
