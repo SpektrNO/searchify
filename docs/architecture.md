@@ -144,7 +144,7 @@ Same fields on `POST /v1/search` and MCP `search_local` (REST already goes throu
 
 ### Per-leg scores
 
-Shipped / planned: [`opt-search-leg-scores`](./feature-backlog.md). Groundline’s evidence gate needs **cardinal** lexical and dense signals; fused RRF `score` alone cannot drive absolute floors. Searchify exposes per-leg scores only (policy-dumb). Groundline decides refuse/accept.
+Shipped: [`opt-search-leg-scores`](./feature-backlog.md). Groundline’s evidence gate needs **cardinal** lexical and dense signals; fused RRF `score` alone cannot drive absolute floors. Searchify exposes per-leg scores only (policy-dumb). Groundline decides refuse/accept.
 
 **Additive hit fields** on `POST /v1/search` / `search_local` (omit when null):
 
