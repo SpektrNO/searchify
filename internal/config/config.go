@@ -622,6 +622,12 @@ func (c *Config) relativeCandidates(rel string, requireExist bool) ([]string, er
 	return matches, nil
 }
 
+// PathWithin reports whether path equals root or is under root as a path
+// segment prefix (so /docs does not match /docs-private).
+func PathWithin(path, root string) bool {
+	return pathWithinRoot(path, root)
+}
+
 func pathWithinRoot(path, root string) bool {
 	root = filepath.Clean(root)
 	path = filepath.Clean(path)
