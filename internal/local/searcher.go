@@ -240,6 +240,7 @@ func (s *Service) searchKeyword(query string, limit, snippetMax int, allow *Path
 			results[i].Kind = cs.Kind
 			results[i].Title = fmt.Sprintf("%s:%s", base, cs.Symbol)
 		}
+		attachKeywordLeg(&results[i], results[i].Score, i+1)
 	}
 	return results, nil
 }
@@ -281,7 +282,14 @@ func (s *Service) searchVector(query string, limit, snippetMax int, allow *PathA
 		ids = append(ids, hit.chunkID)
 		scores[hit.chunkID] = float64(hit.score)
 	}
-	return s.resultsByChunkIDs(ids, scores, snippetMax)
+	results, err := s.resultsByChunkIDs(ids, scores, snippetMax)
+	if err != nil {
+		return nil, err
+	}
+	for i := range results {
+		attachVectorLeg(&results[i], results[i].Score, i+1)
+	}
+	return results, nil
 }
 
 func (s *Service) searchHybridTimed(query string, limit, snippetMax int, allow *PathAllow) ([]search.Result, LegTiming, error) {
@@ -329,6 +337,7 @@ func (s *Service) searchHybridTimed(query string, limit, snippetMax int, allow *
 	if err != nil {
 		return nil, LegTiming{}, err
 	}
+	attachHybridLegScores(results, keywordResults, vectorResults)
 	return results, LegTiming{
 		KeywordMs: keywordMs,
 		VectorMs:  vectorMs,

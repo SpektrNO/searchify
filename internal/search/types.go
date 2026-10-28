@@ -15,11 +15,19 @@ type Result struct {
 	URL     string  `json:"url,omitempty"`
 	Snippet string  `json:"snippet"`
 	Score   float64 `json:"score"`
-	Source  string  `json:"source"`
-	Line    int     `json:"line,omitempty"`
-	Page    int     `json:"page,omitempty"` // 1-based PDF page when known
-	Symbol  string  `json:"symbol,omitempty"`
-	Kind    string  `json:"symbol_kind,omitempty"`
+	// KeywordScore is FTS5 bm25() when the keyword leg contributed this hit.
+	KeywordScore *float64 `json:"keyword_score,omitempty"`
+	// VectorScore is cosine similarity when the vector leg contributed this hit.
+	VectorScore *float64 `json:"vector_score,omitempty"`
+	// KeywordRank is 1-based rank in the keyword leg candidate list.
+	KeywordRank *int `json:"keyword_rank,omitempty"`
+	// VectorRank is 1-based rank in the vector leg candidate list.
+	VectorRank *int `json:"vector_rank,omitempty"`
+	Source     string `json:"source"`
+	Line       int    `json:"line,omitempty"`
+	Page       int    `json:"page,omitempty"` // 1-based PDF page when known
+	Symbol     string `json:"symbol,omitempty"`
+	Kind       string `json:"symbol_kind,omitempty"`
 }
 
 type IndexStatus struct {
