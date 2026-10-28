@@ -1,47 +1,49 @@
-# Handoff: {{title}}
+# Handoff: Per-leg search scores
 
-**Status:** spec | implementing | done | blocked  
-**Created:** {{date}}  
-**Specifier:** spec complete  
+**Status:** spec  
+**Created:** 2026-10-28  
+**Specifier:** lean (in-supervisor)  
 **Developer:** pending
 
 ## GitHub tracking
 
 | Field | Value |
 |-------|-------|
-| Feature id | `{{feature_id}}` |
-| Parent issue | #{{parent_number}} — {{parent_url}} |
-| Open tasks | `spec`, `engine`, … (update as closed) |
+| Feature id | `opt-search-leg-scores` |
+| Parent issue | #93 — https://github.com/SpektrNO/searchify/issues/93 |
+| Open tasks | `spec` #94, `engine` #95, `verify` #96, `docs` #97 |
 
-Task order: `audit` → `spec` → `engine` → `verify` → `docs`
+Task order: `spec` → `engine` → `verify` → `docs`
 
 ## Intent
 
-One sentence: what capability this feature adds and why.
+Expose cardinal keyword (BM25) and vector (cosine) scores on each search hit so Groundline’s evidence gate can apply absolute floors / cliffing — without putting refuse policy in Searchify.
 
 ## Technical contract
 
 | Area | Requirement |
 |------|-------------|
-| MCP tools | New or changed tool names, inputs, outputs |
-| Search mode | keyword / vector / hybrid |
-| Performance | Latency or throughput targets |
-| Acceptance | Observable pass/fail criteria |
+| API | Additive optional fields on hits: `keyword_score`, `vector_score`, `keyword_rank`, `vector_rank`; keep `score` |
+| Units | `keyword_score` = FTS5 `bm25()`; `vector_score` = cosine (typically [-1,1], higher better); ranks 1-based in that leg’s candidate list |
+| Modes | keyword → only keyword fields; vector → only vector; hybrid → per-leg when chunk on that leg (else omit, not 0) |
+| Non-goals | No refuse thresholds, no ACL/identity changes, no rename of `score` |
+| Acceptance | Hybrid both-leg hit has both scores; single-mode only own leg; path allow-set unchanged aside from new fields; tests + README/architecture note |
 
 ## Touchpoints
 
-- Files or packages likely to change (best guess; dev agent confirms)
-- Must not contradict [architecture.md](../architecture.md)
+- `internal/search/types.go` (`Result`)
+- `internal/local/searcher.go` (keyword / vector / hybrid decoration)
+- Tests + README / architecture `#per-leg-scores`
 
 ## Out of scope
 
-What this handoff explicitly does **not** include.
+Groundline refuse strings, ACL allow-set changes, LLM.
 
 ---
 
 ## Implementation result
 
-*(Developer agent fills this section.)*
+*(Developer fills after implement.)*
 
 ### Changes
 
@@ -54,7 +56,7 @@ What this handoff explicitly does **not** include.
 
 ### Deviations from spec
 
-- None / list with rationale
+- None
 
 ### Follow-ups
 

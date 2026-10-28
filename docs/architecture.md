@@ -142,6 +142,23 @@ Same fields on `POST /v1/search` and MCP `search_local` (REST already goes throu
 - Unscoped `POST /v1/search` (fields omitted) is unchanged.
 - Tests cover `keyword` and `hybrid` with `path_prefixes`.
 
+### Per-leg scores
+
+Shipped / planned: [`opt-search-leg-scores`](./feature-backlog.md). Groundline’s evidence gate needs **cardinal** lexical and dense signals; fused RRF `score` alone cannot drive absolute floors. Searchify exposes per-leg scores only (policy-dumb). Groundline decides refuse/accept.
+
+**Additive hit fields** on `POST /v1/search` / `search_local` (omit when null):
+
+| Field | Meaning |
+|-------|---------|
+| `score` | Unchanged primary ranking score (BM25, cosine, or RRF; or LangSearch rerank when `rerank=true`) |
+| `keyword_score` | FTS5 `bm25(chunks_fts)` when the keyword leg contributed this hit |
+| `vector_score` | Cosine similarity when the vector leg contributed this hit (typically \([-1,1]\); higher = more similar) |
+| `keyword_rank` / `vector_rank` | 1-based rank within that leg’s candidate list (before RRF / final trim) |
+
+**Mode semantics:** `keyword` → only keyword fields; `vector` → only vector fields; `hybrid` → each field set only if the chunk appeared on that leg (missing leg → omit/null, **not** `0`). No refuse thresholds or ACL in Searchify.
+
+**BM25 note:** values are raw SQLite FTS5 `bm25()` (commonly ≤ 0; more negative ≈ better match). Do not assume a fixed absolute floor without calibrating on your corpus.
+
 ## External APIs
 
 - [LangSearch Web Search](https://docs.langsearch.com/api/web-search-api)
