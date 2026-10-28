@@ -2,6 +2,63 @@
 
 Hybrid text-search MCP server in Go.
 
+## Overview
+
+One process exposes MCP (stdio or Streamable HTTP) and REST. Agents and app backends call those interfaces; the CLI and optional file watcher write the same SQLite index. `/healthz` is unauthenticated; `/mcp` and `/v1/*` require `Authorization: Bearer` matching `SEARCHIFY_HTTP_TOKEN`. The watcher starts only when `SEARCHIFY_WATCH_PATHS` is set (incremental changes under those paths — not a full-tree re-index).
+
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    cursorStdio[Cursor stdio session]
+    cursorHttp[Cursor HTTP MCP]
+    appBackend[App backend]
+    cli[CLI index embed prune]
+  end
+
+  subgraph iface [Connection interfaces]
+    stdio["mcp stdio"]
+    mcpPath["POST /mcp Bearer"]
+    rest["POST /v1/search and /v1/index"]
+    restRead["GET /v1/files and /v1/stats"]
+    health["GET /healthz"]
+  end
+
+  subgraph proc [searchify process]
+    mcpLayer["internal/mcp tools"]
+    localSvc["internal/local"]
+    watch["fsnotify watcher"]
+  end
+
+  subgraph data [index.db]
+    fts[chunks_fts]
+    vec[chunk_vectors]
+    sym["symbols and symbol_refs"]
+  end
+
+  roots[SEARCHIFY_ROOTS]
+  langsearch[LangSearch API]
+  embed["kjarni ollama or HTTP embed"]
+  workers["extract python node dotnet tesseract"]
+
+  cursorStdio --> stdio --> mcpLayer
+  cursorHttp --> mcpPath --> mcpLayer
+  appBackend --> rest --> mcpLayer
+  appBackend --> restRead --> mcpLayer
+  health --> mcpLayer
+  cli --> localSvc
+  mcpLayer --> localSvc
+  watch --> localSvc
+  localSvc --> fts
+  localSvc --> vec
+  localSvc --> sym
+  localSvc --> roots
+  watch --> roots
+  localSvc --> workers
+  localSvc --> embed
+  embed --> vec
+  mcpLayer -->|"search_web and rerank"| langsearch
+```
+
 ## Components
 
 | Layer | Package | Role |
@@ -47,9 +104,43 @@ Hybrid text-search MCP server in Go.
 
 ## Search modes
 
-- **keyword** — BM25 / line scan
-- **vector** — embedding similarity
-- **hybrid** — parallel retrieval + RRF fusion
+- **keyword** — FTS5 BM25 over `chunks_fts`. `buildFTSQuery` splits on whitespace, strips surrounding quotes per token, and joins terms with **`AND`**. Every term must appear in the **same chunk** (order and adjacency do not matter). The word `OR` is a literal token, not a boolean operator. Quoted phrases are not preserved today.
+- **vector** — embed the full query string once; rank chunks by cosine similarity. No token AND/OR; near-paraphrases can rank without sharing all query words.
+- **hybrid** — keyword and vector legs in parallel, then RRF fusion. Prefer hybrid when `index_status.vector_ready` is true (`vector_chunk_count == chunk_count`). Prefer **keyword-only** when vectors are incomplete — a sparse vector leg pulls noise into RRF.
+
+**Guidance:** do not add boolean query syntax for routine use. Hybrid (when vectors are complete) covers exact tokens plus semantic near-matches. To survey **alternate names** that need not co-occur (true OR), run separate keyword calls and merge paths, or wait for optional `term_op` ([`opt-term-op`](./feature-backlog.md)). Check readiness with MCP `index_status` (`vector_ready`, or compare `vector_chunk_count` to `chunk_count`).
+
+### Path allow-set (constrained retrieve)
+
+Shipped: [`opt-search-path-allowset`](./feature-backlog.md). Groundline (and similar ACL-owning clients) resolve **who** the caller is and **what** they may see. Searchify only **ranks inside that allow-set**. Searchify must not implement identity or ACL policy (no users, roles, AD, JWTs, tenant model, or Groundline auth integration).
+
+**Why:** if Searchify returns a global top-`limit` and the client filters afterward, allowed documents that ranked just outside `k` are dropped → result starvation (empty/weak evidence even when readable matches exist).
+
+**Contract** (additive; omit both fields = current unscoped search):
+
+| Field | Semantics |
+|-------|-----------|
+| `path_prefixes: string[]` | Hit path equals or is under any prefix (OR). Path-segment prefix, not a raw string prefix (`/docs` must not match `/docs-private`). |
+| `paths: string[]` | Optional exact-path allow-list, OR’d with prefixes (union if both set). |
+
+Same fields on `POST /v1/search` and MCP `search_local` (REST already goes through `executeSearchLocal`). Relative paths resolve like other APIs (`SEARCHIFY_PATH_BASE`, then roots). Every resolved path must stay under `SEARCHIFY_ROOTS`; invalid or out-of-root entries → **400**.
+
+**Presence vs empty:**
+
+- Both fields omitted → unscoped (today).
+- Either field present and the union of prefixes + exact paths is empty → **200** + `results: []`. Do **not** fall back to the full index.
+- Constraint applies in the keyword, vector, and hybrid legs **before** scoring/fusion/top-`limit`. Hybrid RRF runs over the filtered legs. Return up to `limit` from the constrained set.
+
+**Non-goals:** tenant/user/role model; Groundline auth; post-gen / LLM / audit logic; changing default unscoped search when filter fields are omitted.
+
+**Groundline alignment:** when trim is enabled, Groundline sends the resolved allow-set and will not post-filter a global top-`k` as the primary design. Empty allow-set → Groundline refuses without calling Searchify unscoped. Searchify still returns `[]` if invoked with a present-empty set (defense in depth).
+
+**Acceptance:**
+
+- A relevant doc under an allowed prefix is returned; a stronger match outside the prefixes is not.
+- With a small allow-set, `limit` is filled from allowed docs when they exist (proves no post-trim starvation).
+- Unscoped `POST /v1/search` (fields omitted) is unchanged.
+- Tests cover `keyword` and `hybrid` with `path_prefixes`.
 
 ## External APIs
 
@@ -86,6 +177,8 @@ Hybrid text-search MCP server in Go.
 - **Extract memory:** PDF/Office/HTML parsers (especially `ledongthuc/pdf`) can hang or spike multi-GB heap on some real-world PDFs. Default: index spawns short-lived `searchify extract --file` for non-passthrough types; PDF prefers **`pdftotext`** (Poppler) when on `PATH`, else page-loop Go parser; extract timeouts become **skip** so the rest of the corpus continues (`SEARCHIFY_EXTRACT_INPROCESS=1` restores old in-process behavior).
 - **Bulk ingestion:** the watcher drains events separately from one indexing worker. Its per-path debounce map is capped at 1,024 paths, with a single wake channel/timer; excess events coalesce into a recovery scan. Startup, queue overflow, fsnotify overflow, and optional periodic scans reconcile missing files in 128-row pages and attach watches before streaming an incremental index pass. New directory attachment/crawling happens in the worker. Directory reads use 128-entry batches; index progress totals use a count pass rather than retaining all paths. Indexing and embedding share a service-local gate, including API calls; request cancellation stops queued indexing/discovery/extraction and process embedding workers. Shutdown cancels and joins the watcher before database close. This is not a cross-process resource limit or a hard RSS cap for individual models/parsers.
 - Vector search is brute-force cosine today; ANN/HNSW is optional when corpora grow (backlog `opt-hnsw-vectors`)
+- Keyword boolean / FTS5 exact phrases are not exposed; optional `term_op` + preserved `"..."` phrases is backlog `opt-term-op`. Matching `search_file` phrase (contiguous substring) is backlog `opt-search-file-phrase` (separate line scanner, not FTS5).
+- Constrained retrieve by caller-supplied path allow-set (`path_prefixes` / `paths`) is backlog [`opt-search-path-allowset`](./feature-backlog.md) — see [Path allow-set](#path-allow-set-constrained-retrieve).
 - Storage stays SQLite FTS5 + blob vectors by default; optional store adapter (backlog `opt-store-adapter`) would select backend via config (e.g. `SEARCHIFY_STORE=sqlite|postgres`) so PostgreSQL + pgvector can replace the local DB without changing MCP tools
 - **Postgres hosting decision:** when `opt-store-adapter` lands, prefer the **same Postgres instance as Groundline** on a given host (shared server, Searchify-owned schema/database or prefixed tables)—do not run a second Postgres solely for Searchify unless isolation requirements force it. Connection via env (DSN) pointing at that shared instance.
 

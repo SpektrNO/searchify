@@ -17,11 +17,13 @@ type restErrorBody struct {
 }
 
 type restSearchRequest struct {
-	Query      string `json:"query"`
-	Limit      int    `json:"limit,omitempty"`
-	Mode       string `json:"mode,omitempty"`
-	Rerank     bool   `json:"rerank,omitempty"`
-	SnippetMax int    `json:"snippet_max,omitempty"`
+	Query        string   `json:"query"`
+	Limit        int      `json:"limit,omitempty"`
+	Mode         string   `json:"mode,omitempty"`
+	Rerank       bool     `json:"rerank,omitempty"`
+	SnippetMax   int      `json:"snippet_max,omitempty"`
+	PathPrefixes []string `json:"path_prefixes,omitempty"`
+	Paths        []string `json:"paths,omitempty"`
 }
 
 type restIndexRequest struct {
@@ -47,11 +49,13 @@ func (s *Server) handleV1Search(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 	out, _, err := s.executeSearchLocal(r.Context(), searchLocalInput{
-		Query:      req.Query,
-		Limit:      req.Limit,
-		Mode:       req.Mode,
-		Rerank:     req.Rerank,
-		SnippetMax: req.SnippetMax,
+		Query:        req.Query,
+		Limit:        req.Limit,
+		Mode:         req.Mode,
+		Rerank:       req.Rerank,
+		SnippetMax:   req.SnippetMax,
+		PathPrefixes: req.PathPrefixes,
+		Paths:        req.Paths,
 	})
 	out.DurationMs = elapsedMs(start)
 	if err != nil {
@@ -152,11 +156,17 @@ func (s *Server) executeSearchLocal(ctx context.Context, input searchLocalInput)
 		return searchLocalOutput{}, "", fmt.Errorf("LANGSEARCH_API_KEY is required when rerank=true")
 	}
 
+	allow, err := s.resolveSearchPathAllow(input.PathPrefixes, input.Paths)
+	if err != nil {
+		return searchLocalOutput{}, "", err
+	}
+
 	outcome, err := s.local.Search(local.SearchParams{
 		Query:      input.Query,
 		Limit:      input.Limit,
 		Mode:       mode,
 		SnippetMax: input.SnippetMax,
+		Allow:      allow,
 	})
 	if err != nil {
 		return searchLocalOutput{}, "", fmt.Errorf("search failed: %w", err)
@@ -207,5 +217,10 @@ func isClientSearchError(err error) bool {
 	}
 	msg := err.Error()
 	return strings.HasPrefix(msg, "unknown mode") ||
-		strings.Contains(msg, "LANGSEARCH_API_KEY is required")
+		strings.Contains(msg, "LANGSEARCH_API_KEY is required") ||
+		strings.Contains(msg, "outside allowed roots") ||
+		strings.Contains(msg, "is ambiguous") ||
+		strings.Contains(msg, "escapes via") ||
+		strings.Contains(msg, "path is required") ||
+		strings.Contains(msg, "is not allowed")
 }

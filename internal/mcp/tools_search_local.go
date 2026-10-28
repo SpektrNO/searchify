@@ -13,11 +13,13 @@ import (
 )
 
 type searchLocalInput struct {
-	Query      string `json:"query" jsonschema:"search query"`
-	Limit      int    `json:"limit,omitempty" jsonschema:"maximum number of results (default 10, max 50)"`
-	Mode       string `json:"mode,omitempty" jsonschema:"search mode: keyword, vector, or hybrid (default hybrid when vectors exist)"`
-	Rerank     bool   `json:"rerank,omitempty" jsonschema:"rerank results with LangSearch (requires LANGSEARCH_API_KEY)"`
-	SnippetMax int    `json:"snippet_max,omitempty" jsonschema:"max snippet characters (default SEARCHIFY_SNIPPET_CHARS or 300, max 8000)"`
+	Query        string   `json:"query" jsonschema:"search query"`
+	Limit        int      `json:"limit,omitempty" jsonschema:"maximum number of results (default 10, max 50)"`
+	Mode         string   `json:"mode,omitempty" jsonschema:"search mode: keyword, vector, or hybrid (default hybrid when vectors exist)"`
+	Rerank       bool     `json:"rerank,omitempty" jsonschema:"rerank results with LangSearch (requires LANGSEARCH_API_KEY)"`
+	SnippetMax   int      `json:"snippet_max,omitempty" jsonschema:"max snippet characters (default SEARCHIFY_SNIPPET_CHARS or 300, max 8000)"`
+	PathPrefixes []string `json:"path_prefixes,omitempty" jsonschema:"optional path prefixes; rank only hits equal to or under any prefix (OR). Present-empty with paths empty yields no results"`
+	Paths        []string `json:"paths,omitempty" jsonschema:"optional exact path allow-list (OR with path_prefixes). Present-empty with prefixes empty yields no results"`
 }
 
 type searchLocalTiming struct {

@@ -20,6 +20,8 @@ type SearchParams struct {
 	Limit      int
 	Mode       search.Mode
 	SnippetMax int // 0 = use SEARCHIFY_SNIPPET_CHARS / default 300
+	// Allow constrains hits to a path allow-set (nil = unscoped).
+	Allow *PathAllow
 }
 
 // LegTiming is best-effort per-leg timing for search_local breakdowns.
@@ -59,10 +61,14 @@ func (s *Service) Search(params SearchParams) (SearchOutcome, error) {
 		}
 	}
 
+	if params.Allow != nil && params.Allow.emptyConstraint() {
+		return SearchOutcome{Results: nil, Mode: mode}, nil
+	}
+
 	switch mode {
 	case search.ModeKeyword:
 		start := time.Now()
-		results, err := s.searchKeyword(params.Query, limit, snippetMax)
+		results, err := s.searchKeyword(params.Query, limit, snippetMax, params.Allow)
 		if err != nil {
 			return SearchOutcome{}, err
 		}
@@ -73,7 +79,7 @@ func (s *Service) Search(params SearchParams) (SearchOutcome, error) {
 		}, nil
 	case search.ModeVector:
 		start := time.Now()
-		results, err := s.searchVector(params.Query, limit, snippetMax)
+		results, err := s.searchVector(params.Query, limit, snippetMax, params.Allow)
 		if err != nil {
 			return SearchOutcome{}, err
 		}
@@ -83,7 +89,7 @@ func (s *Service) Search(params SearchParams) (SearchOutcome, error) {
 			Timing:  LegTiming{VectorMs: elapsedMs(start)},
 		}, nil
 	case search.ModeHybrid:
-		results, timing, err := s.searchHybridTimed(params.Query, limit, snippetMax)
+		results, timing, err := s.searchHybridTimed(params.Query, limit, snippetMax, params.Allow)
 		if err != nil {
 			return SearchOutcome{}, err
 		}
@@ -180,7 +186,7 @@ func (s *Service) Status() (search.IndexStatus, error) {
 	return status, nil
 }
 
-func (s *Service) searchKeyword(query string, limit, snippetMax int) ([]search.Result, error) {
+func (s *Service) searchKeyword(query string, limit, snippetMax int, allow *PathAllow) ([]search.Result, error) {
 	if err := s.requireIndex(); err != nil {
 		return nil, err
 	}
@@ -190,13 +196,16 @@ func (s *Service) searchKeyword(query string, limit, snippetMax int) ([]search.R
 		return nil, fmt.Errorf("query has no searchable terms")
 	}
 
+	pathClause, pathArgs := pathAllowSQL("", allow)
+	args := append([]any{ftsQuery}, pathArgs...)
+	args = append(args, limit)
 	rows, err := s.db.Query(`
 		SELECT id, file_path, line_start, text, bm25(chunks_fts) AS score
 		FROM chunks_fts
-		WHERE chunks_fts MATCH ?
+		WHERE chunks_fts MATCH ?`+pathClause+`
 		ORDER BY score DESC
 		LIMIT ?`,
-		ftsQuery, limit,
+		args...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("search index: %w", err)
@@ -235,7 +244,7 @@ func (s *Service) searchKeyword(query string, limit, snippetMax int) ([]search.R
 	return results, nil
 }
 
-func (s *Service) searchVector(query string, limit, snippetMax int) ([]search.Result, error) {
+func (s *Service) searchVector(query string, limit, snippetMax int, allow *PathAllow) ([]search.Result, error) {
 	if err := s.requireIndex(); err != nil {
 		return nil, err
 	}
@@ -260,7 +269,7 @@ func (s *Service) searchVector(query string, limit, snippetMax int) ([]search.Re
 		return nil, fmt.Errorf("embed query: %w", err)
 	}
 
-	vectors, err := s.loadAllChunkVectors()
+	vectors, err := s.loadChunkVectors(allow)
 	if err != nil {
 		return nil, err
 	}
@@ -275,22 +284,25 @@ func (s *Service) searchVector(query string, limit, snippetMax int) ([]search.Re
 	return s.resultsByChunkIDs(ids, scores, snippetMax)
 }
 
-func (s *Service) searchHybridTimed(query string, limit, snippetMax int) ([]search.Result, LegTiming, error) {
+func (s *Service) searchHybridTimed(query string, limit, snippetMax int, allow *PathAllow) ([]search.Result, LegTiming, error) {
 	if err := s.requireIndex(); err != nil {
 		return nil, LegTiming{}, err
 	}
 
 	kwStart := time.Now()
-	keywordResults, keywordErr := s.searchKeywordCandidates(query, candidatePool)
+	keywordResults, keywordErr := s.searchKeywordCandidates(query, candidatePool, allow)
 	keywordMs := elapsedMs(kwStart)
 
 	vecStart := time.Now()
-	vectorResults, vectorErr := s.searchVectorCandidates(query, candidatePool)
+	vectorResults, vectorErr := s.searchVectorCandidates(query, candidatePool, allow)
 	vectorMs := elapsedMs(vecStart)
 
 	if len(keywordResults) == 0 && len(vectorResults) == 0 {
 		if keywordErr != nil && vectorErr != nil {
 			return nil, LegTiming{}, fmt.Errorf("hybrid search failed: keyword: %v; vector: %v", keywordErr, vectorErr)
+		}
+		if allow != nil {
+			return nil, LegTiming{KeywordMs: keywordMs, VectorMs: vectorMs}, nil
 		}
 		return nil, LegTiming{}, fmt.Errorf("no results")
 	}
@@ -324,19 +336,22 @@ func (s *Service) searchHybridTimed(query string, limit, snippetMax int) ([]sear
 	}, nil
 }
 
-func (s *Service) searchKeywordCandidates(query string, limit int) ([]rank.RankedItem, error) {
+func (s *Service) searchKeywordCandidates(query string, limit int, allow *PathAllow) ([]rank.RankedItem, error) {
 	ftsQuery := buildFTSQuery(query)
 	if ftsQuery == "" {
 		return nil, fmt.Errorf("query has no searchable terms")
 	}
 
+	pathClause, pathArgs := pathAllowSQL("", allow)
+	args := append([]any{ftsQuery}, pathArgs...)
+	args = append(args, limit)
 	rows, err := s.db.Query(`
 		SELECT id, bm25(chunks_fts) AS score
 		FROM chunks_fts
-		WHERE chunks_fts MATCH ?
+		WHERE chunks_fts MATCH ?`+pathClause+`
 		ORDER BY score DESC
 		LIMIT ?`,
-		ftsQuery, limit,
+		args...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("search index: %w", err)
@@ -355,7 +370,7 @@ func (s *Service) searchKeywordCandidates(query string, limit int) ([]rank.Ranke
 	return items, rows.Err()
 }
 
-func (s *Service) searchVectorCandidates(query string, limit int) ([]rank.RankedItem, error) {
+func (s *Service) searchVectorCandidates(query string, limit int, allow *PathAllow) ([]rank.RankedItem, error) {
 	if err := s.requireMatchingEmbedModel(); err != nil {
 		return nil, err
 	}
@@ -376,7 +391,7 @@ func (s *Service) searchVectorCandidates(query string, limit int) ([]rank.Ranked
 		return nil, fmt.Errorf("embed query: %w", err)
 	}
 
-	vectors, err := s.loadAllChunkVectors()
+	vectors, err := s.loadChunkVectors(allow)
 	if err != nil {
 		return nil, err
 	}

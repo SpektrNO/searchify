@@ -74,7 +74,27 @@ func topKByCosine(query []float32, vectors map[string][]float32, k int) []vector
 }
 
 func (s *Service) loadAllChunkVectors() (map[string][]float32, error) {
-	rows, err := s.db.Query(`SELECT chunk_id, embedding FROM chunk_vectors`)
+	return s.loadChunkVectors(nil)
+}
+
+// loadChunkVectors loads embeddings, optionally constrained to PathAllow before ranking.
+func (s *Service) loadChunkVectors(allow *PathAllow) (map[string][]float32, error) {
+	if allow != nil && allow.emptyConstraint() {
+		return map[string][]float32{}, nil
+	}
+
+	query := `SELECT v.chunk_id, v.embedding FROM chunk_vectors v`
+	var args []any
+	if allow != nil {
+		clause, pathArgs := pathAllowSQL("c", allow)
+		query = `SELECT v.chunk_id, v.embedding
+			FROM chunk_vectors v
+			JOIN chunks_fts c ON c.id = v.chunk_id
+			WHERE 1=1` + clause
+		args = pathArgs
+	}
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
