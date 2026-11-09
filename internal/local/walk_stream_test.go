@@ -18,7 +18,7 @@ func collectIndexablePaths(cfg *config.Config, reg *extract.Registry, roots []st
 		if len(messages) < maxIndexMessages {
 			messages = append(messages, msg)
 		}
-	}) {
+	}, nil) {
 		files = append(files, path)
 	}
 	return files, messages
@@ -35,7 +35,7 @@ func TestIndexablePathsStreamsAcrossDirectoryBatches(t *testing.T) {
 	count := 0
 	for range indexablePaths(context.Background(), w.cfg, w.svc.extract, []string{root}, func(msg string) {
 		t.Error(msg)
-	}) {
+	}, nil) {
 		count++
 	}
 	if count != directoryBatchSize*2+1 {
@@ -44,7 +44,7 @@ func TestIndexablePathsStreamsAcrossDirectoryBatches(t *testing.T) {
 	count = 0
 	for range indexablePaths(context.Background(), w.cfg, w.svc.extract, []string{root}, func(msg string) {
 		t.Error(msg)
-	}) {
+	}, nil) {
 		count++
 		if count == 3 {
 			break

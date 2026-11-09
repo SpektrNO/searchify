@@ -1,9 +1,9 @@
 # Handoff: Default-branch watch
 
-**Status:** spec  
+**Status:** implementing  
 **Created:** 2026-11-09  
 **Specifier:** spec complete  
-**Developer:** pending
+**Developer:** in progress
 
 ## GitHub tracking
 

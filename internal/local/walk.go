@@ -44,7 +44,7 @@ func walkDirectories(ctx context.Context, root string, visit func(string, os.Dir
 	}
 }
 
-func indexablePaths(ctx context.Context, cfg *config.Config, reg *extract.Registry, roots []string, message func(string)) iter.Seq[string] {
+func indexablePaths(ctx context.Context, cfg *config.Config, reg *extract.Registry, roots []string, message func(string), skipDir func(string) bool) iter.Seq[string] {
 	return func(yield func(string) bool) {
 		maxBytes := maxIndexFileBytes(cfg)
 		visitFile := func(path string, info os.FileInfo) bool {
@@ -72,6 +72,9 @@ func indexablePaths(ctx context.Context, cfg *config.Config, reg *extract.Regist
 					return context.Canceled
 				}
 				if d.IsDir() {
+					if skipDir != nil && skipDir(path) {
+						return nil
+					}
 					if !cfg.SkipPath(path) {
 						walk(path)
 					}
@@ -108,6 +111,9 @@ func indexablePaths(ctx context.Context, cfg *config.Config, reg *extract.Regist
 				continue
 			}
 			if info.IsDir() {
+				if skipDir != nil && skipDir(allowed) {
+					continue
+				}
 				if !cfg.SkipPath(allowed) {
 					walk(allowed)
 				}

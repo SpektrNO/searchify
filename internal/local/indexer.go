@@ -30,6 +30,10 @@ type IndexPathsOptions struct {
 	Context  context.Context // optional; cancels discovery, queued work, and extraction
 	Force    bool
 	Progress func(IndexProgress) // optional; called on stderr-friendly milestones
+	// SkipDir, when set, leaves those directories out of the walk. The watcher
+	// uses it to skip git work trees that are off the remote default branch.
+	// Nil does not skip anything beyond the usual excludes.
+	SkipDir func(dir string) bool
 }
 
 // IndexPaths builds or refreshes the local index for paths under allowed roots.
@@ -52,7 +56,7 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 	}
 
 	total := 0
-	for range indexablePaths(ctx, s.cfg, s.extract, paths, report.addMessage) {
+	for range indexablePaths(ctx, s.cfg, s.extract, paths, report.addMessage, opts.SkipDir) {
 		total++
 	}
 	if err := ctx.Err(); err != nil {
@@ -66,7 +70,7 @@ func (s *Service) IndexPathsOpts(paths []string, opts IndexPathsOptions) (IndexR
 	}
 
 	n := 0
-	for path := range indexablePaths(ctx, s.cfg, s.extract, paths, report.addMessage) {
+	for path := range indexablePaths(ctx, s.cfg, s.extract, paths, report.addMessage, opts.SkipDir) {
 		if err := ctx.Err(); err != nil {
 			return report, err
 		}
