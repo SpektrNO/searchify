@@ -253,7 +253,7 @@ searchify index --skip-embed "C:\path\to\vault"
 | Mode | Behavior |
 |------|----------|
 | `serve http` / `mcp stdio` alone | Serves only; index stays as-of the last `index` / `/v1/index` |
-| + `SEARCHIFY_WATCH_PATHS` | fsnotify: create/write → reindex (debounced); remove/rename → drop from index |
+| + `SEARCHIFY_WATCH_PATHS` | fsnotify: create/write → reindex (debounced); remove/rename → drop from index. A git work tree is indexed only while it is on the remote default branch |
 | + `SEARCHIFY_WATCH_RESCAN` (e.g. `5m`) | Periodic full re-index of watch paths — useful when fsnotify is flaky (OneDrive, some network mounts) |
 
 Without `SEARCHIFY_WATCH_PATHS`, nothing is scanned routinely after serve starts.
@@ -404,6 +404,7 @@ Large clones and bulk imports continue automatically, with bounded background wo
 - Events are triaged for watch scope, excluded directories/files, supported extensions, and file size before extraction. Writes debounce per path (`SEARCHIFY_WATCH_DEBOUNCE`, default `1s`).
 - One worker consumes at most **1,024 pending paths**, deduplicating repeated events. There is no timer or indexing goroutine per file. Indexing and embedding requests on the same service also run one at a time.
 - Queue overflow and fsnotify event overflow schedule a coalesced recovery scan instead of silently dropping changes. New or moved-in populated directories are recursively watched and indexed by the worker.
+- A git work tree is indexed and recovery-scanned only while its checked-out branch is the remote default branch (`refs/remotes/<remote>/HEAD`, resolved once per process). The remote is the branch upstream, else the sole remote, else `origin`. No remote, or an unreachable remote, leaves that repo ungated. Off the default branch or detached, that repo's events are dropped and a checkout does not recovery-scan other watch roots; switching back rescans that repo only. `searchify index`, `index_paths`, and `POST /v1/index` are not gated.
 - Startup performs a recovery scan. Recovery scans reconcile missing indexed files as well as additions/updates. Optional `SEARCHIFY_WATCH_RESCAN` (e.g. `5m`) repeats this periodically; recommended for OneDrive / cloud-synced folders where events can be missing without an overflow notification.
 - Directory discovery reads batches of 128 entries and streams file paths rather than retaining the entire tree. An initial counting pass preserves CLI progress totals; totals can change if files arrive during indexing. Diagnostic messages are capped at 20.
 - Shutdown cancels queued work and waits for the worker before closing the database; it does not flush a large backlog. The in-memory queue is not durable; the next startup recovery scan discovers unfinished work.
