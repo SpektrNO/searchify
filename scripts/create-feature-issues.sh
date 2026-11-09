@@ -265,9 +265,33 @@ task_issue_exists() {
   gh_task_issue_exists "$1" "$2"
 }
 
+# GitHub issue titles are limited to 256 characters. Print a fitting title.
+# Return 0 when unchanged, 1 when the feature text was shortened.
+fit_github_title() {
+  local prefix="$1" text="$2"
+  local max=256
+  local full="${prefix}${text}"
+  if ((${#full} <= max)); then
+    printf '%s\n' "$full"
+    return 0
+  fi
+  local budget=$((max - ${#prefix} - 3))
+  local cut="${text:0:budget}"
+  if [[ "$cut" == *" "* ]]; then
+    cut="${cut% *}"
+  fi
+  printf '%s%s...\n' "$prefix" "$cut"
+  return 1
+}
+
 build_parent_body() {
   local id="$1" title="$2" status="$3" spec="$4" parent_num="${5:-}"
+  local summary="${7:-}"
   local task_section=""
+  local summary_section=""
+  if [[ -n "$summary" ]]; then
+    summary_section=$'\n'"**Summary:** ${summary}"$'\n'
+  fi
 
   while IFS='|' read -r slug tname _; do
   task_section+="- [ ] \`${slug}\` — ${tname}"$'\n'
@@ -279,6 +303,7 @@ build_parent_body() {
 **ID:** \`${id}\`
 **Status:** ${status}
 **Spec:** [\`${spec}\`](https://github.com/${REPO}/blob/main/${spec})
+${summary_section}
 
 ## Tasks
 
@@ -394,7 +419,13 @@ while IFS= read -r section; do
 done < <(printf '%s\n' "${!SECTION_TITLES[@]}" | sort)
 
 while IFS='|' read -r section section_title id title status spec; do
-  issue_title="[${id}] ${title}"
+  summary=""
+  if issue_title=$(fit_github_title "[${id}] " "$title"); then
+    :
+  else
+    summary="$title"
+    echo "warn: truncated title for ${id} (backlog Feature cell is ${#title} characters; GitHub max is 256)" >&2
+  fi
   labels="feature,${section},status/todo"
   [[ "$status" == "🟡" ]] && labels="${labels},partial"
 
@@ -407,7 +438,7 @@ while IFS='|' read -r section section_title id title status spec; do
     log_skip "parent exists: #${parent_num} ${id}"
     ((parents_skipped++)) || true
   else
-    body=$(build_parent_body "$id" "$title" "$status" "$spec" "$parent_num" "$section")
+    body=$(build_parent_body "$id" "$title" "$status" "$spec" "$parent_num" "$section" "$summary")
     if $DRY_RUN; then
       echo "DRY parent: ${issue_title}"
       ((parents_created++)) || true

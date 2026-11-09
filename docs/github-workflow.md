@@ -21,6 +21,8 @@ Section-specific omissions (see `create-feature-issues.sh`):
 | Optional scale and ops | default: `engine`, `verify`, `docs`; `opt-tls-reverse-proxy`: `docs`, `verify` |
 | All other sections | `engine`, `verify`, `docs` |
 
+Feature issue titles are `[feature-id]` plus the backlog Feature cell. GitHub rejects titles longer than 256 characters. `create-feature-issues.sh` shortens those titles and copies the full cell into the issue body.
+
 **Workflow labels** (mutually exclusive): `status/todo` → `status/in-progress` → `status/done`  
 Labels track progress; **closing** an issue is separate (see below).
 
